@@ -30,5 +30,5 @@ print(f"Dispositivo: {DISPOSITIVO}")
 # Prueba mínima: una operación con tensores en ese dispositivo
 x = torch.randn(256, 64, device=DISPOSITIVO)
 y = (x @ x.T).sum().item()
-print(f"Operación de prueba en {DISPOSITIVO}: OK")
+print(f"Operación de prueba en {DISPOSITIVO}: OK  (MPS disponible: {torch.backends.mps.is_available()})")
 print("Entorno verificado correctamente.")

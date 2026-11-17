@@ -14,3 +14,6 @@ __pycache__/
 # Archivos de macOS y del editor
 .DS_Store
 .vscode/
+
+# Resultados de pruebas con datos sintéticos (quitar esta línea al tener resultados reales)
+experiments/resultados/
