@@ -68,7 +68,8 @@ def crear_modelo(nombre: str, semilla: int = SEMILLA) -> nn.Module:
 
 def obtener_pesos(modulo: nn.Module) -> list[np.ndarray]:
     """Pesos del módulo como lista de arreglos NumPy (el formato que viaja por la red)."""
-    return [valor.cpu().numpy() for valor in modulo.state_dict().values()]
+    # .copy(): sin copia, el arreglo compartiría memoria con el modelo y cambiaría al entrenar
+    return [valor.cpu().numpy().copy() for valor in modulo.state_dict().values()]
 
 
 def cargar_pesos(modulo: nn.Module, pesos: list[np.ndarray]) -> None:
