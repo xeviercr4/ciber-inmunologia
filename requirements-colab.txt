@@ -1,0 +1,4 @@
+# Dependencias para Google Colab.
+# Colab ya trae PyTorch (con soporte de GPU), NumPy, pandas, scikit-learn, pyarrow,
+# matplotlib y PyYAML: no hay que reinstalarlos. Solo falta Flower.
+flwr[simulation]==1.23.0

@@ -10,8 +10,12 @@ centralized.py — Líneas base sin federación.
 Uso:
     python -m src.centralized --modelo mlp --epocas 20
     python -m src.centralized --modelo transformer --epocas 10 --modo dirichlet --alpha 0.5
+
+    # Evaluar en esta máquina un modelo ya entrenado (por ejemplo, descargado de Colab):
+    python -m src.centralized --evaluar experiments/resultados/modelos/centralizado_mlp.pt
 """
 import argparse
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -20,11 +24,14 @@ import torch
 from src.config import ALPHA_DIRICHLET, DIR_RESULTADOS, DISPOSITIVO, FAMILIAS, NUM_NODOS, RONDAS, SEMILLA
 from src.partition import crear_particion
 from src.train_utils import (
+    calcular_metricas,
     cargar_datos,
+    cargar_modelo,
     crear_modelo,
     entrenar,
     entrenar_y_evaluar,
     graficar_matriz,
+    guardar_modelo,
     predecir,
 )
 
@@ -100,8 +107,23 @@ if __name__ == "__main__":
     parser.add_argument("--modo", choices=["iid", "familia", "dirichlet"], default="dirichlet",
                         help="cómo se reparten los datos para los modelos aislados")
     parser.add_argument("--alpha", type=float, default=ALPHA_DIRICHLET)
+    parser.add_argument("--evaluar", metavar="ARCHIVO.pt",
+                        help="no entrena: carga un modelo guardado y lo mide en el test global")
     args = parser.parse_args()
     X_train, y_train, X_test, y_test = cargar_datos()
+
+    # --- Modo evaluación: medir un modelo ya entrenado y terminar ---
+    if args.evaluar:
+        ruta = Path(args.evaluar)
+        pred = predecir(cargar_modelo(ruta), X_test)
+        m = calcular_metricas(y_test, pred)
+        print(f"{ruta.name}   F1 macro {m['f1_macro']:.3f} | exactitud {m['exactitud']:.3f} | "
+              f"falsos positivos {m['fpr']:.3f}")
+        print("  recall por familia: " + "  ".join(f"{n} {m[f'recall_{n}']:.2f}" for n in FAMILIAS))
+        ruta_matriz = DIR_RESULTADOS / f"{ruta.stem}_matriz.png"
+        graficar_matriz(y_test, pred, f"Matriz de confusión — {ruta.stem}", ruta_matriz)
+        print(f"Guardado: {ruta_matriz}")
+        raise SystemExit
 
     print(f"Dispositivo: {DISPOSITIVO} | modelo: {args.modelo} | épocas: {args.epocas}\n")
 
@@ -111,6 +133,7 @@ if __name__ == "__main__":
     print(f"CENTRALIZADO   F1 macro {final['f1_macro']:.3f} | exactitud {final['exactitud']:.3f} | "
           f"falsos positivos {final['fpr']:.3f}")
     print("  recall por familia: " + "  ".join(f"{n} {final[f'recall_{n}']:.2f}" for n in FAMILIAS))
+    guardar_modelo(modelo, args.modelo, f"centralizado_{args.modelo}")
     ruta_matriz = DIR_RESULTADOS / f"centralizado_{args.modelo}_matriz.png"
     graficar_matriz(y_test, predecir(modelo, X_test), f"Matriz de confusión — {args.modelo} centralizado", ruta_matriz)
 
@@ -135,4 +158,4 @@ if __name__ == "__main__":
     filas += [{"metodo": f"aislado_nodo{nodo}", **f} for nodo, h in enumerate(aislados) for f in h]
     ruta_csv = DIR_RESULTADOS / f"centralizado_{args.modelo}_metricas.csv"
     pd.DataFrame(filas).to_csv(ruta_csv, index=False)
-    print(f"\nGuardado: {ruta_csv.name} y {ruta_matriz.name} en {DIR_RESULTADOS}")
+    print(f"\nGuardado en {DIR_RESULTADOS}: {ruta_csv.name}, {ruta_matriz.name} y modelos/centralizado_{args.modelo}.pt")

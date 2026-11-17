@@ -34,6 +34,7 @@ con el mismo esquema para poder probar todo el flujo.
 | `src/centralized.py` | Líneas base: modelo centralizado, modelos aislados por nodo y autoencoder |
 | `src/federated.py` | Simulación federada: FedAvg, FedProx, cabezas locales, Krum, mediana y nodos maliciosos |
 | `experiments/` | Un script por experimento; los resultados van a `experiments/resultados/` |
+| `colab.ipynb` | Notebook para correr todo en Google Colab |
 
 ## Uso
 
@@ -62,13 +63,33 @@ python -m experiments.e4_maliciosos       # 1 a 3 nodos maliciosos: FedAvg vs. K
 Todos los experimentos aceptan `--modelo mlp|transformer` y `--rondas N`. El MLP
 es el valor por defecto porque es rápido; el FlowTransformer tarda mucho más.
 
+## Google Colab
+
+[![Abrir en Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/xeviercr4/ciber-inmunologia/blob/main/colab.ipynb)
+
+El notebook `colab.ipynb` corre el proyecto completo con la GPU de Colab: clona este
+repositorio, instala Flower (`requirements-colab.txt`), toma los CSV desde Google Drive
+y guarda ahí los resultados y los pesos de los modelos.
+
+Para evaluar en la máquina local un modelo entrenado en Colab:
+
+```bash
+python -m src.centralized --evaluar ruta/al/archivo.pt
+```
+
+Los datos locales tienen que estar preprocesados igual que en Colab (mismos CSV y
+mismo `--sample`), porque el modelo depende de las columnas y de la normalización.
+
 ## Notas
 
-- **Reproducibilidad:** la semilla es fija (`SEMILLA` en `config.py`). Dos corridas
-  iguales producen CSV idénticos.
+- **Reproducibilidad:** la semilla es fija (`SEMILLA` en `config.py`). En CPU, dos corridas
+  iguales producen CSV idénticos; en GPU puede haber diferencias numéricas mínimas.
 - **Métricas:** la principal es el F1 macro. También se reportan la tasa de falsos
   positivos (tráfico benigno marcado como ataque) y el recall por familia.
-- **Dispositivo:** se usa la GPU de Apple (MPS) en Apple Silicon y CPU en el resto.
-  Se puede forzar con `CIBER_DISPOSITIVO=mps` o `=cpu`.
+- **Dispositivo:** se usa GPU NVIDIA (CUDA) si hay una, la GPU de Apple (MPS) en Apple
+  Silicon y CPU en el resto. Se puede forzar con `CIBER_DISPOSITIVO=cuda`, `=mps` o `=cpu`.
+- **Pesos guardados:** `centralized.py`, `federated.py` y E1 guardan los modelos
+  entrenados en `experiments/resultados/modelos/` (archivos `.pt`).
+- **Carpeta de resultados:** se puede cambiar con la variable de entorno `CIBER_RESULTADOS`.
 - **Simulaciones en paralelo:** no lanzar dos simulaciones federadas a la vez; Ray
   (el motor de Flower) falla con varias instancias simultáneas.

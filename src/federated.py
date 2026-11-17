@@ -41,6 +41,7 @@ from src.config import (
     DIR_RESULTADOS,
     EPOCAS_LOCALES,
     FAMILIAS,
+    GPU_POR_NODO,
     HILOS_POR_NODO,
     MU_FEDPROX,
     NUM_NODOS,
@@ -48,7 +49,15 @@ from src.config import (
     SEMILLA,
 )
 from src.partition import cargar_particion, crear_particion, guardar_particion, ruta_particion
-from src.train_utils import cargar_datos, cargar_pesos, crear_modelo, entrenar, evaluar, obtener_pesos
+from src.train_utils import (
+    cargar_datos,
+    cargar_pesos,
+    crear_modelo,
+    entrenar,
+    evaluar,
+    guardar_modelo,
+    obtener_pesos,
+)
 
 ESTRATEGIAS = ["fedavg", "fedprox", "local", "krum", "mediana"]
 
@@ -163,9 +172,11 @@ def crear_estrategia(nombre: str, mu: float, num_maliciosos: int, **comunes):
 # ---------------------------------------------------------------------------
 def ejecutar_federado(estrategia: str, particion: dict, modelo: str = "mlp", rondas: int = RONDAS,
                       epocas: int = EPOCAS_LOCALES, mu: float = MU_FEDPROX,
-                      maliciosos: tuple[int, ...] = (), mostrar: bool = True) -> list[dict]:
+                      maliciosos: tuple[int, ...] = (), mostrar: bool = True,
+                      guardar_como: str | None = None) -> list[dict]:
     """
     Corre una simulación federada y devuelve una fila de métricas por ronda.
+    Si se pasa `guardar_como`, al terminar guarda los pesos globales en un .pt.
 
     - "f1_macro", "fpr", "recall_X"...: medidos en el test global. Con las
       estrategias normales los calcula el servidor con el modelo global; con
@@ -188,9 +199,9 @@ def ejecutar_federado(estrategia: str, particion: dict, modelo: str = "mlp", ron
 
     def evaluar_en_servidor(ronda: int, pesos: list[np.ndarray], _config):
         """Después de cada ronda, el servidor mide el modelo global en el test global."""
+        cargar_pesos(parte_federada, pesos)  # el servidor se queda con los últimos pesos globales
         if personalizado:
-            return None
-        cargar_pesos(modelo_global, pesos)
+            return None  # sin cabeza global no hay modelo completo que medir: lo miden los nodos
         metricas = evaluar(modelo_global, X_test, y_test)
         historial.setdefault(ronda, {}).update(metricas)
         return 0.0, {"f1_macro": metricas["f1_macro"]}
@@ -230,13 +241,15 @@ def ejecutar_federado(estrategia: str, particion: dict, modelo: str = "mlp", ron
             client_app=ClientApp(client_fn=crear_nodo),
             num_supernodes=num_nodos,
             backend_config={
-                "client_resources": {"num_cpus": HILOS_POR_NODO, "num_gpus": 0.0},
+                "client_resources": {"num_cpus": HILOS_POR_NODO, "num_gpus": GPU_POR_NODO},
                 "init_args": {"logging_level": logging.ERROR, "log_to_driver": False},
             },
         )
     finally:
         ruta_particion(nombre_particion).unlink(missing_ok=True)
 
+    if guardar_como:
+        guardar_modelo(parte_federada, modelo, guardar_como, parte="encoder" if personalizado else "completo")
     return [{"ronda": ronda, **historial[ronda]} for ronda in sorted(historial)]
 
 
@@ -254,10 +267,10 @@ if __name__ == "__main__":
     print(f"Federado: {args.estrategia} | modelo {args.modelo} | reparto {args.modo} | "
           f"{args.nodos} nodos ({args.maliciosos} maliciosos) | {args.rondas} rondas")
     particion = crear_particion(args.modo, args.nodos, args.alpha, SEMILLA)
+    nombre = f"federado_{args.estrategia}_{args.modelo}"
     filas = ejecutar_federado(args.estrategia, particion, args.modelo, args.rondas,
-                              maliciosos=tuple(range(args.maliciosos)))
+                              maliciosos=tuple(range(args.maliciosos)), guardar_como=nombre)
 
     DIR_RESULTADOS.mkdir(parents=True, exist_ok=True)
-    ruta = DIR_RESULTADOS / f"federado_{args.estrategia}_{args.modelo}.csv"
-    pd.DataFrame(filas).to_csv(ruta, index=False)
-    print(f"Guardado: {ruta}")
+    pd.DataFrame(filas).to_csv(DIR_RESULTADOS / f"{nombre}.csv", index=False)
+    print(f"Guardado en {DIR_RESULTADOS}: {nombre}.csv y modelos/{nombre}.pt")

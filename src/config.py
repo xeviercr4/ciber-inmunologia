@@ -23,7 +23,10 @@ import torch
 RAIZ = Path(__file__).resolve().parent.parent
 DIR_RAW = RAIZ / "data" / "raw"              # CSV originales de CIC-IDS2017
 DIR_PROCESSED = RAIZ / "data" / "processed"  # parquet limpio y particiones
-DIR_RESULTADOS = RAIZ / "experiments" / "resultados"  # CSV y PNG de los experimentos
+# Resultados de los experimentos (CSV y PNG). Con la variable de entorno CIBER_RESULTADOS
+# se pueden mandar a otra carpeta; en Colab se usa para guardarlos en Google Drive.
+DIR_RESULTADOS = Path(os.environ.get("CIBER_RESULTADOS", RAIZ / "experiments" / "resultados"))
+DIR_MODELOS = DIR_RESULTADOS / "modelos"     # pesos de los modelos entrenados (.pt)
 
 # ---------------------------------------------------------------------------
 # Reproducibilidad
@@ -43,17 +46,20 @@ def fijar_semillas(semilla: int = SEMILLA) -> None:
 # ---------------------------------------------------------------------------
 def obtener_dispositivo() -> torch.device:
     """
-    Elige dónde se hacen los cálculos.
+    Elige dónde se hacen los cálculos, en este orden:
 
-    - En Mac con Apple Silicon se usa la GPU (MPS) si está disponible.
-    - En Mac Intel también puede existir MPS (con placa AMD), pero en las
-      pruebas resultó ~15 veces más lento que la CPU para el Transformer,
-      así que ahí se usa CPU.
-    - Se puede forzar con la variable de entorno CIBER_DISPOSITIVO=mps o =cpu.
+    1. Lo que diga la variable de entorno CIBER_DISPOSITIVO (cuda, mps o cpu), si está definida.
+    2. GPU NVIDIA (CUDA) si hay una: es el caso de Google Colab.
+    3. GPU de Apple (MPS) en Mac con Apple Silicon.
+    4. CPU en cualquier otro caso. En Mac Intel también puede existir MPS (con
+       placa AMD), pero en las pruebas resultó ~15 veces más lento que la CPU
+       para el Transformer, así que ahí se usa CPU.
     """
     forzado = os.environ.get("CIBER_DISPOSITIVO")
     if forzado:
         return torch.device(forzado)
+    if torch.cuda.is_available():
+        return torch.device("cuda")
     if torch.backends.mps.is_available() and platform.machine() == "arm64":
         return torch.device("mps")
     return torch.device("cpu")
@@ -69,7 +75,10 @@ RONDAS = 20             # rondas de comunicación servidor <-> nodos
 EPOCAS_LOCALES = 1      # pasadas sobre sus datos que hace cada nodo por ronda
 ALPHA_DIRICHLET = 0.5   # heterogeneidad del reparto: más chico = nodos más distintos
 MU_FEDPROX = 0.1        # fuerza del término proximal de FedProx
-HILOS_POR_NODO = 2      # hilos de CPU que usa cada nodo simulado
+# Recursos de cada nodo simulado. Con GPU NVIDIA el trabajo pesado lo hace la GPU:
+# cada nodo usa 1 hilo de CPU y una quinta parte de la GPU (hasta 5 nodos a la vez).
+HILOS_POR_NODO = 1 if DISPOSITIVO.type == "cuda" else 2
+GPU_POR_NODO = 0.2 if DISPOSITIVO.type == "cuda" else 0.0
 
 # ---------------------------------------------------------------------------
 # Entrenamiento

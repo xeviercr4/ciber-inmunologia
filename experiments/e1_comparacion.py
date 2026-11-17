@@ -15,6 +15,7 @@ from experiments.comun import dibujar_lineas, guardar_csv, guardar_figura, leer_
 from src.centralized import entrenar_aislados, entrenar_centralizado, promediar_nodos
 from src.federated import ejecutar_federado
 from src.partition import crear_particion, resumen
+from src.train_utils import guardar_modelo
 
 METODOS = {"centralizado": "Centralizado", "aislado": "Aislado (promedio de nodos)", "federado": "Federado (FedAvg)"}
 
@@ -27,11 +28,13 @@ if __name__ == "__main__":
     print(f"E1 | modelo {args.modelo} | reparto {args.modo} | {args.rondas} rondas\n{resumen(particion)}\n")
 
     print("  Entrenando centralizado ...")
-    _, centralizado = entrenar_centralizado(args.modelo, args.rondas)
+    modelo_centralizado, centralizado = entrenar_centralizado(args.modelo, args.rondas)
+    guardar_modelo(modelo_centralizado, args.modelo, f"e1_centralizado_{args.modelo}")
     print("  Entrenando un modelo aislado por nodo ...")
     aislado = promediar_nodos(entrenar_aislados(particion, args.modelo, args.rondas))
     print("  Entrenando federado ...")
-    federado = ejecutar_federado("fedavg", particion, args.modelo, args.rondas, mostrar=False)
+    federado = ejecutar_federado("fedavg", particion, args.modelo, args.rondas, mostrar=False,
+                                 guardar_como=f"e1_federado_{args.modelo}")
 
     filas = [{"metodo": metodo, **fila}
              for metodo, historial in [("centralizado", centralizado), ("aislado", aislado), ("federado", federado)]

@@ -15,6 +15,7 @@ from torch import nn
 
 from src.config import (
     COLUMNA_ETIQUETA,
+    DIR_MODELOS,
     DISPOSITIVO,
     FAMILIAS,
     RUTA_TEST,
@@ -76,6 +77,31 @@ def cargar_pesos(modulo: nn.Module, pesos: list[np.ndarray]) -> None:
     """Operación inversa: copia una lista de arreglos NumPy dentro del módulo."""
     claves = modulo.state_dict().keys()
     modulo.load_state_dict({clave: torch.tensor(valor) for clave, valor in zip(claves, pesos)})
+
+
+def guardar_modelo(modulo: nn.Module, nombre_modelo: str, archivo: str, parte: str = "completo") -> None:
+    """
+    Guarda los pesos en experiments/resultados/modelos/<archivo>.pt.
+    `parte` indica qué contiene: "completo" (encoder + cabeza) o "encoder"
+    (en la variante personalizada el servidor solo conoce el encoder).
+    """
+    DIR_MODELOS.mkdir(parents=True, exist_ok=True)
+    pesos = {clave: valor.cpu() for clave, valor in modulo.state_dict().items()}
+    torch.save({"modelo": nombre_modelo, "parte": parte, "pesos": pesos}, DIR_MODELOS / f"{archivo}.pt")
+
+
+def cargar_modelo(ruta) -> nn.Module:
+    """
+    Reconstruye un modelo a partir de un archivo .pt guardado con guardar_modelo.
+    Sirve para traer a esta máquina un modelo entrenado en otra (p. ej. en Colab).
+    """
+    guardado = torch.load(ruta, map_location="cpu")  # map_location: funciona aunque se haya entrenado en GPU
+    modelo = crear_modelo(guardado["modelo"])
+    destino = modelo.encoder if guardado["parte"] == "encoder" else modelo
+    destino.load_state_dict(guardado["pesos"])
+    if guardado["parte"] == "encoder":
+        print("Aviso: el archivo solo contiene el encoder; la cabeza de clasificación queda sin entrenar.")
+    return modelo
 
 
 # ---------------------------------------------------------------------------
