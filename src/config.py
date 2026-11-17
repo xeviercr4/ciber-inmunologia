@@ -48,3 +48,16 @@ DISPOSITIVO = obtener_dispositivo()
 # Federación
 # ---------------------------------------------------------------------------
 NUM_NODOS = 5  # cantidad de organizaciones simuladas
+
+# ---------------------------------------------------------------------------
+# Datos
+# ---------------------------------------------------------------------------
+# Familias de ataque. El orden define el número de clase: Benign=0, DoS=1, ...
+FAMILIAS = ["Benign", "DoS", "DDoS", "PortScan", "BruteForce", "Web", "Bot"]
+COLUMNA_ETIQUETA = "label"  # nombre de la columna de clase en los parquet
+
+FRACCION_TEST = 0.2  # 80% entrenamiento, 20% prueba
+
+RUTA_TRAIN = DIR_PROCESSED / "train.parquet"
+RUTA_TEST = DIR_PROCESSED / "test.parquet"
+RUTA_METADATA = DIR_PROCESSED / "metadata.json"  # columnas, conteos y parámetros de normalización
