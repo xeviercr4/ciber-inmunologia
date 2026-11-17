@@ -10,6 +10,10 @@ import platform
 import random
 from pathlib import Path
 
+# Silencia un aviso inofensivo de OpenMP que aparece cuando Flower lanza los procesos de los nodos.
+# Tiene que definirse antes de importar torch.
+os.environ.setdefault("KMP_WARNINGS", "0")
+
 import numpy as np
 import torch
 
