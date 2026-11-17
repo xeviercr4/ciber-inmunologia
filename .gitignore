@@ -1,0 +1,16 @@
+# Entorno virtual
+.venv/
+
+# Datos (los CSV pesan varios GB; no se versionan)
+data/
+
+# Cachés de Python
+__pycache__/
+*.pyc
+
+# Pesos de modelos entrenados
+*.pt
+
+# Archivos de macOS y del editor
+.DS_Store
+.vscode/

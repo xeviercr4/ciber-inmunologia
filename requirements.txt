@@ -1,0 +1,11 @@
+# Dependencias del proyecto Ciber-Inmunología Swarm (Python 3.11)
+# Nota: en Mac Intel la última versión de PyTorch disponible es la 2.2.2,
+# que además necesita numpy 1.x (no es compatible con numpy 2).
+torch==2.2.2
+numpy<2
+scikit-learn
+pandas
+pyarrow
+matplotlib
+pyyaml
+flwr[simulation]
