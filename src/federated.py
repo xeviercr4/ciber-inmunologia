@@ -97,6 +97,7 @@ class NodoIDS(NumPyClient):
         self.nodo = nodo
         self.contexto = contexto  # contexto.state es la "memoria" del nodo entre rondas
         self.personalizado = opciones["estrategia"] == "local"
+        self.mascara = opciones["mascara"]  # entrenar solo sobre las clases que el nodo conoce
 
         # Datos privados del nodo: solo las filas que le asigna la partición
         X_train, y_train, X_test, y_test = cargar_datos()
@@ -127,6 +128,7 @@ class NodoIDS(NumPyClient):
             epocas=config["epocas"],
             semilla=SEMILLA + 1000 * config["ronda"] + self.nodo,  # distinta por ronda y nodo, pero fija
             mu=config.get("proximal_mu", 0.0),                     # solo FedProx envía este valor
+            solo_clases_propias=self.mascara,
         )
         if self.personalizado:
             # La cabeza se guarda en la memoria del nodo: nunca se envía al servidor
@@ -189,10 +191,11 @@ def crear_estrategia(nombre: str, mu: float, num_maliciosos: int, **comunes):
 def ejecutar_federado(estrategia: str, particion: dict, modelo: str = "mlp", rondas: int = RONDAS,
                       epocas: int = EPOCAS_LOCALES, mu: float = MU_FEDPROX,
                       maliciosos: tuple[int, ...] = (), mostrar: bool = True,
-                      guardar_como: str | None = None) -> list[dict]:
+                      guardar_como: str | None = None, mascara: bool = False) -> list[dict]:
     """
     Corre una simulación federada y devuelve una fila de métricas por ronda.
     Si se pasa `guardar_como`, al terminar guarda los pesos globales en un .pt.
+    Con `mascara=True` cada nodo entrena solo sobre las clases que tiene en sus datos.
 
     - "f1_macro", "fpr", "recall_X"...: medidos en el test global. Con las
       estrategias normales los calcula el servidor con el modelo global; con
@@ -207,7 +210,7 @@ def ejecutar_federado(estrategia: str, particion: dict, modelo: str = "mlp", ron
     nombre_particion = f"tmp_{os.getpid()}"
     guardar_particion(particion, nombre_particion)
     opciones = {"estrategia": estrategia, "particion": nombre_particion,
-                "modelo": modelo, "maliciosos": tuple(maliciosos)}
+                "modelo": modelo, "maliciosos": tuple(maliciosos), "mascara": mascara}
 
     modelo_global = crear_modelo(modelo)
     parte_federada = modelo_global.encoder if personalizado else modelo_global

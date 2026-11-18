@@ -108,7 +108,7 @@ def cargar_modelo(ruta) -> nn.Module:
 # Entrenamiento
 # ---------------------------------------------------------------------------
 def entrenar(modelo: nn.Module, X: np.ndarray, y: np.ndarray | None, epocas: int,
-             semilla: int = SEMILLA, mu: float = 0.0) -> None:
+             semilla: int = SEMILLA, mu: float = 0.0, solo_clases_propias: bool = False) -> None:
     """
     Entrena el modelo `epocas` pasadas sobre (X, y).
 
@@ -116,6 +116,10 @@ def entrenar(modelo: nn.Module, X: np.ndarray, y: np.ndarray | None, epocas: int
     - Si mu > 0 se agrega el término proximal de FedProx, que penaliza
       alejarse de los pesos con los que el modelo llegó (los globales):
           pérdida += (mu / 2) * ||pesos - pesos_globales||²
+    - Si solo_clases_propias es True, la pérdida solo compara entre las clases
+      que el nodo tiene en sus datos ("máscara de clases"). Sin esto, un nodo
+      que nunca vio una familia aprende a puntuarla siempre bajo, y al
+      promediar borra lo que aprendió el nodo que sí la vio.
     """
     if len(X) == 0:
         return
@@ -126,6 +130,11 @@ def entrenar(modelo: nn.Module, X: np.ndarray, y: np.ndarray | None, epocas: int
     generador = torch.Generator().manual_seed(semilla)  # orden de los lotes reproducible
     torch.manual_seed(semilla)                          # dropout reproducible
     globales = [p.detach().clone() for p in modelo.parameters()] if mu > 0 else None
+    ausentes = None  # clases que este nodo no tiene en sus datos
+    if solo_clases_propias and y is not None:
+        presentes = torch.zeros(len(FAMILIAS), dtype=torch.bool, device=DISPOSITIVO)
+        presentes[torch.unique(y_t)] = True
+        ausentes = ~presentes
 
     for _ in range(epocas):
         orden = torch.randperm(len(X_t), generator=generador).to(DISPOSITIVO)
@@ -135,6 +144,10 @@ def entrenar(modelo: nn.Module, X: np.ndarray, y: np.ndarray | None, epocas: int
             if y_t is None:
                 perdida = F.mse_loss(salida, X_t[lote])
             else:
+                if ausentes is not None:
+                    # Un puntaje muy negativo saca a esas clases de la comparación:
+                    # no reciben gradiente y sus pesos quedan como llegaron del servidor
+                    salida = salida.masked_fill(ausentes, -1e9)
                 perdida = F.cross_entropy(salida, y_t[lote])
             if globales is not None:
                 distancia = sum(((p - g) ** 2).sum() for p, g in zip(modelo.parameters(), globales))

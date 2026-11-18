@@ -15,6 +15,7 @@ Referencias (lo que tendría un nodo que nunca vio el ataque, sin federación):
 Uso:
     python -m experiments.e3_zero_day
     python -m experiments.e3_zero_day --familia Bot --modelo transformer --rondas 10
+    python -m experiments.e3_zero_day --mascara   # cada nodo entrena solo sobre las clases que conoce
     python -m experiments.e3_resumen     # compara todas las familias ya corridas
 """
 from experiments.comun import (
@@ -35,18 +36,23 @@ SERIES = {"recall": "Reconocida como esa familia", "detectado": "Marcada como at
 
 def agregar_argumentos(parser):
     parser.add_argument("--familia", choices=FAMILIAS[1:], default="DDoS", help="familia que hace de zero-day")
+    parser.add_argument("--mascara", action="store_true",
+                        help="cada nodo entrena solo sobre las clases que tiene en sus datos")
 
 
 if __name__ == "__main__":
     args = leer_argumentos("E3: zero-day simulado", agregar_argumentos)
     familia = args.familia
-    print(f"E3 | modelo {args.modelo} | zero-day: {familia} (solo la ve el nodo {NODO_CON_ATAQUE}) | {args.rondas} rondas")
+    variante = " | con máscara de clases" if args.mascara else ""
+    print(f"E3 | modelo {args.modelo} | zero-day: {familia} (solo la ve el nodo {NODO_CON_ATAQUE}) | "
+          f"{args.rondas} rondas{variante}")
 
     particion = quitar_familia(crear_particion("iid"), familia, NODO_CON_ATAQUE)
     X_train, y_train, _, _ = cargar_datos()
 
     # --- Federado ---
-    federado = ejecutar_federado("fedavg", particion, args.modelo, args.rondas, mostrar=False)
+    federado = ejecutar_federado("fedavg", particion, args.modelo, args.rondas, mostrar=False,
+                                 mascara=args.mascara)
 
     # --- Referencias: un nodo que nunca vio el ataque, sin federación ---
     solo_ese_nodo = {parte: [particion[parte][NODO_SIN_ATAQUE]] for parte in ("train", "test")}
@@ -64,7 +70,7 @@ if __name__ == "__main__":
                    "aislado": aislado[f"detectado_{familia}"], "autoencoder": metricas_ae[f"detectado_{familia}"]}
         filas.append({"serie": "recall", "valor": fila[f"recall_{familia}"], **comunes})
         filas.append({"serie": "detectado", "valor": fila[f"detectado_{familia}"], **comunes})
-    nombre = f"e3_{args.modelo}_{familia}"
+    nombre = f"e3_{args.modelo}_{familia}" + ("_mascara" if args.mascara else "")
     tabla = guardar_csv(filas, nombre)
 
     # --- ¿En cuántas rondas se alcanza cada umbral? ---
@@ -75,13 +81,15 @@ if __name__ == "__main__":
             alcanzado = datos[datos["valor"] >= u]
             cuando = f"ronda {int(alcanzado['ronda'].iloc[0])}" if len(alcanzado) else f"no se alcanza en {args.rondas} rondas"
             print(f"    {titulo:<40} >= {u:.0%}: {cuando}")
+    print(f"  Modelo global en la última ronda: F1 macro {federado[-1]['f1_macro']:.3f}, "
+          f"falsos positivos {federado[-1]['fpr']:.1%}")
     print(f"  Referencias de un nodo que nunca vio {familia} (sin federación):")
     print(f"    modelo aislado: la marca como ataque en {aislado[f'detectado_{familia}']:.1%} de los casos")
     print(f"    autoencoder:    la marca como anomalía en {metricas_ae[f'detectado_{familia}']:.1%} "
           f"(con {metricas_ae['fpr']:.1%} de falsos positivos)")
 
     # --- Gráfica ---
-    fig, ejes = nueva_figura(1, 1, f"E3 — Zero-day: {familia} solo en un nodo ({args.modelo})")
+    fig, ejes = nueva_figura(1, 1, f"E3 — Zero-day: {familia} solo en un nodo ({args.modelo}{variante.replace(' | ', ', ')})")
     ax = ejes[0][0]
     dibujar_lineas(ax, tabla, "valor", "serie", SERIES)
     for valor, texto in [(aislado[f"detectado_{familia}"], "Nodo aislado que no la vio"),
