@@ -1,4 +1,9 @@
 # Dependencias para Google Colab.
 # Colab ya trae PyTorch (con soporte de GPU), NumPy, pandas, scikit-learn, pyarrow,
 # matplotlib y PyYAML: no hay que reinstalarlos. Solo falta Flower.
-flwr[simulation]==1.23.0
+#
+# Se usa una versión de Flower más nueva que en requirements.txt porque Colab
+# corre Python 3.13 y trae versiones recientes de protobuf y cryptography, con
+# las que Flower 1.23 es incompatible. (En Mac Intel no se puede usar esta
+# versión: su motor de simulación no tiene instalador para esa plataforma.)
+flwr[simulation]==1.43.0
