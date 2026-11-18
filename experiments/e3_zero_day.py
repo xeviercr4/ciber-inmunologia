@@ -15,6 +15,7 @@ Referencias (lo que tendría un nodo que nunca vio el ataque, sin federación):
 Uso:
     python -m experiments.e3_zero_day
     python -m experiments.e3_zero_day --familia Bot --modelo transformer --rondas 10
+    python -m experiments.e3_resumen     # compara todas las familias ya corridas
 """
 from experiments.comun import (
     COLOR_REFERENCIA, COLOR_TEXTO_SUAVE, dibujar_lineas, guardar_csv, guardar_figura, leer_argumentos,
@@ -56,9 +57,11 @@ if __name__ == "__main__":
 
     # --- CSV: una fila por ronda y por serie ---
     # Se omite la ronda 0: el modelo sin entrenar responde al azar y marca casi todo como ataque
+    # Las dos referencias se repiten en cada fila para que el CSV alcance para rehacer la gráfica
     filas = []
     for fila in federado[1:]:
-        comunes = {"ronda": fila["ronda"], "f1_macro": fila["f1_macro"], "fpr": fila["fpr"]}
+        comunes = {"ronda": fila["ronda"], "f1_macro": fila["f1_macro"], "fpr": fila["fpr"],
+                   "aislado": aislado[f"detectado_{familia}"], "autoencoder": metricas_ae[f"detectado_{familia}"]}
         filas.append({"serie": "recall", "valor": fila[f"recall_{familia}"], **comunes})
         filas.append({"serie": "detectado", "valor": fila[f"detectado_{familia}"], **comunes})
     nombre = f"e3_{args.modelo}_{familia}"

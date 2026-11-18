@@ -56,7 +56,8 @@ python -m src.federated --estrategia fedavg --modo dirichlet --alpha 0.5
 # 5. Experimentos (cada uno guarda un CSV por ronda y una gráfica PNG)
 python -m experiments.e1_comparacion      # centralizado vs. aislado vs. federado
 python -m experiments.e2_heterogeneidad   # FedAvg vs. FedProx vs. cabezas locales, alpha = 0.1 / 0.5 / 1.0
-python -m experiments.e3_zero_day         # un ataque nuevo que solo ve un nodo
+python -m experiments.e3_zero_day         # un ataque nuevo que solo ve un nodo (--familia Bot, Web, ...)
+python -m experiments.e3_resumen          # una figura con todas las familias ya corridas en E3
 python -m experiments.e4_maliciosos       # 1 a 3 nodos maliciosos: FedAvg vs. Krum vs. mediana
 ```
 
