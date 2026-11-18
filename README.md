@@ -68,8 +68,8 @@ es el valor por defecto porque es rápido; el FlowTransformer tarda mucho más.
 [![Abrir en Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/xeviercr4/ciber-inmunologia/blob/main/colab.ipynb)
 
 El notebook `colab.ipynb` corre el proyecto completo con la GPU de Colab: clona este
-repositorio, instala Flower (`requirements-colab.txt`), toma los CSV desde Google Drive
-y guarda ahí los resultados y los pesos de los modelos.
+repositorio, descarga CIC-IDS2017 a Google Drive la primera vez, instala Flower
+(`requirements-colab.txt`) y guarda en Drive los resultados y los pesos de los modelos.
 
 Para evaluar en la máquina local un modelo entrenado en Colab:
 
