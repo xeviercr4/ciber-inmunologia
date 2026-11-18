@@ -13,6 +13,8 @@ from pathlib import Path
 # Silencia un aviso inofensivo de OpenMP que aparece cuando Flower lanza los procesos de los nodos.
 # Tiene que definirse antes de importar torch.
 os.environ.setdefault("KMP_WARNINGS", "0")
+# En Colab, Flower carga TensorFlow (que este proyecto no usa) y este llena la salida de mensajes.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 import numpy as np
 import torch

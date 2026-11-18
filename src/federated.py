@@ -26,6 +26,7 @@ Uso:
 import argparse
 import logging
 import os
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -62,6 +63,21 @@ from src.train_utils import (
 ESTRATEGIAS = ["fedavg", "fedprox", "local", "krum", "mediana"]
 
 logging.getLogger("flwr").setLevel(logging.WARNING)  # oculta los mensajes informativos de Flower
+
+
+class SinAvisosDeObsolescencia(logging.Filter):
+    """
+    Oculta el aviso que las versiones nuevas de Flower repiten en cada simulación:
+    `run_simulation` será reemplazada por el comando `flwr run`. Hoy funciona igual,
+    y la versión de Flower está fijada en los archivos de requisitos.
+    """
+
+    def filter(self, registro: logging.LogRecord) -> bool:
+        return "deprecated" not in registro.getMessage().lower()
+
+
+logging.getLogger("flwr").addFilter(SinAvisosDeObsolescencia())
+warnings.filterwarnings("ignore", category=FutureWarning, module=r"ray\..*")  # aviso informativo de Ray
 
 
 def invertir_etiquetas(y: np.ndarray) -> np.ndarray:
