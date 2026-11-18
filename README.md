@@ -41,7 +41,7 @@ con el mismo esquema para poder probar todo el flujo.
 Todos los comandos se ejecutan desde la raíz del proyecto, con el entorno activado.
 
 ```bash
-# 1. Preprocesamiento (--sample 0.1 usa el 10% de los datos, para desarrollar)
+# 1. Preprocesamiento (--sample 0.1 usa el 10% del tráfico benigno y todos los ataques)
 python -m src.preprocess --sample 0.1
 
 # 2. Ver cómo queda un reparto entre nodos

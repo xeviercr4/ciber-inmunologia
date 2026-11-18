@@ -7,14 +7,15 @@ Qué hace, en orden:
   3. Elimina filas con inf/NaN.
   4. Agrupa las etiquetas originales en 7 familias de ataque.
   5. Elimina filas duplicadas y columnas constantes.
-  6. (Opcional) se queda con una muestra estratificada: --sample 0.1
+  6. (Opcional) reduce el tráfico benigno: --sample 0.1 se queda con el 10% de
+     los flujos benignos y conserva TODOS los ataques.
   7. Separa train/test de forma estratificada.
   8. Normaliza (logaritmo + estandarización) usando solo estadísticas de train.
   9. Guarda train.parquet, test.parquet y metadata.json en data/processed.
 
 Uso:
     python -m src.preprocess               # dataset completo
-    python -m src.preprocess --sample 0.1  # 10% de los datos, para desarrollar
+    python -m src.preprocess --sample 0.1  # 10% del tráfico benigno + todos los ataques
 """
 import argparse
 import json
@@ -227,10 +228,16 @@ def preprocesar(fraccion: float = 1.0) -> None:
     print("Limpiando ...")
     df = limpiar(df)
 
-    # --- 3. Muestra estratificada (misma fracción de cada familia) ---
+    # --- 3. Muestra: se reduce solo el tráfico benigno ---
+    # El benigno es ~83% del dataset, así que recortarlo es lo que ahorra tiempo.
+    # Los ataques se conservan enteros: si también se recortaran, las familias
+    # raras (Web y Bot, ~2.000 filas cada una) quedarían con menos de 200 filas
+    # y el modelo no llegaría a aprenderlas.
     if fraccion < 1.0:
-        df = df.groupby(COLUMNA_ETIQUETA).sample(frac=fraccion, random_state=SEMILLA).reset_index(drop=True)
-        print(f"  Muestra del {fraccion:.0%}:                 {len(df):>10,}")
+        es_benigno = df[COLUMNA_ETIQUETA] == FAMILIAS.index("Benign")
+        benigno = df[es_benigno].sample(frac=fraccion, random_state=SEMILLA)
+        df = pd.concat([benigno, df[~es_benigno]]).sort_index().reset_index(drop=True)
+        print(f"  Con {fraccion:.0%} del benigno:            {len(df):>10,}")
 
     # --- 4. Split estratificado: train y test con la misma proporción de cada familia ---
     columnas = [c for c in df.columns if c != COLUMNA_ETIQUETA]
@@ -283,7 +290,7 @@ def preprocesar(fraccion: float = 1.0) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Limpieza de CIC-IDS2017")
     parser.add_argument("--sample", type=float, default=1.0,
-                        help="fracción de los datos a usar, entre 0 y 1 (ej.: 0.1 = 10%%)")
+                        help="fracción del tráfico benigno a usar, entre 0 y 1 (los ataques se conservan todos)")
     args = parser.parse_args()
     if not 0 < args.sample <= 1:
         parser.error("--sample debe estar entre 0 (excluido) y 1")

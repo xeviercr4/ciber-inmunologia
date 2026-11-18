@@ -76,7 +76,7 @@ NUM_NODOS = 5           # cantidad de organizaciones simuladas
 RONDAS = 20             # rondas de comunicación servidor <-> nodos
 EPOCAS_LOCALES = 1      # pasadas sobre sus datos que hace cada nodo por ronda
 ALPHA_DIRICHLET = 0.5   # heterogeneidad del reparto: más chico = nodos más distintos
-MU_FEDPROX = 0.1        # fuerza del término proximal de FedProx
+MU_FEDPROX = 0.01       # fuerza del término proximal de FedProx (con 0.1 y 0.05 frenaba el aprendizaje)
 # Recursos de cada nodo simulado. Con GPU NVIDIA el trabajo pesado lo hace la GPU:
 # cada nodo usa 1 hilo de CPU y una quinta parte de la GPU (hasta 5 nodos a la vez).
 HILOS_POR_NODO = 1 if DISPOSITIVO.type == "cuda" else 2
