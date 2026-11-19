@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Demo zero-day</title>
+<title>Demo: agentes ante un ataque nuevo</title>
 <style>
   :root {
     --fondo: #f5f4f1; --tarjeta: #fcfcfb; --borde: #dddbd5; --texto: #1f1e1c; --suave: #6b6a65;
@@ -46,11 +46,24 @@
   th { font-weight: 600; color: var(--suave); font-size: 13px; }
   .tabla { overflow-x: auto; }
   h3 { font-size: 16px; margin: 28px 0 0; }
+  i.alerta { opacity: .5; }
+  .nodo header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .insignia { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--borde); color: var(--suave); }
+  .insignia.malo { border-color: var(--pasa); color: var(--pasa); }
+  .confianza { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; font-size: 14px; }
+  .barra { height: 6px; border-radius: 3px; background: var(--vacio); overflow: hidden; }
+  .barra span { display: block; height: 100%; background: var(--otro); transition: width .3s; }
+  .barra.baja span { background: var(--pasa); }
+  #charla { list-style: none; margin: 8px 0 0; padding: 0; }
+  #charla li { padding: 10px 0 10px 12px; border-bottom: 1px solid var(--borde); border-left: 4px solid var(--normal); margin-bottom: 4px; }
+  #charla li.acepta { border-left-color: var(--reconoce); } #charla li.rechaza { border-left-color: var(--pasa); }
+  #charla small { display: block; color: var(--suave); }
+  .nada { color: var(--suave); font-size: 15px; margin: 8px 0 0; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Un ataque nuevo contra tres organizaciones</h1>
+  <h1>Un ataque nuevo contra agentes que cooperan</h1>
   <p class="sub" id="sub"></p>
 
   <div class="controles">
@@ -66,9 +79,13 @@
     <span><span class="punto" style="background:var(--otro)"></span>Da alarma, con otro nombre</span>
     <span><span class="punto" style="background:var(--pasa)"></span>Lo deja pasar / falsa alarma</span>
     <span><span class="punto" style="background:var(--normal)"></span>Tráfico normal bien clasificado</span>
+    <span><span class="punto" style="background:var(--reconoce);opacity:.5"></span>Más tenue: alerta sin bloquear (poca confianza)</span>
   </div>
 
-  <h3>Resultados de cada fase</h3>
+  <h3>Conversación entre agentes</h3>
+  <ul id="charla"></ul>
+
+  <h3>Resultados de cada fase (agentes que no conocían el ataque)</h3>
   <div class="tabla"><table>
     <thead><tr><th>Fase</th><th>Reconocidos</th><th>Con otro nombre</th><th>Pasaron como normales</th><th>Falsas alarmas</th></tr></thead>
     <tbody id="resumen"></tbody>
@@ -79,12 +96,14 @@
 const LOTE = 15;        // flujos por envío: con lotes chicos se ve cómo se va llenando la grilla
 const PAUSA_MS = 120;   // pausa entre envíos
 const EXPLICACION = [
-  "Cada organización usa el modelo que entrenó solo con sus datos. Ninguna vio este ataque.",
-  "Las organizaciones federan con promedio simple. Cuatro de cinco nunca vieron el ataque y su voto tapa al de la que sí lo vio.",
-  "Las organizaciones federan con máscara de clases: cada una opina solo sobre las familias que conoce.",
+  "Nadie se comunica. Cada agente usa el modelo que entrenó solo con sus datos; solo A conoce este ataque.",
+  "Los agentes pueden hablar. Cuando A reconoce el ataque, ofrece un modelo a sus pares, y cada uno lo prueba con sus propios datos antes de aceptarlo.",
+  "Igual que antes, pero E entrenó con las etiquetas invertidas y también ofrece su modelo. Los demás lo prueban, lo rechazan y dejan de confiar en E.",
 ];
-let info = null, fase = 1, ocupado = false;
+const DECISION = {acepta: "lo acepta", rechaza: "lo rechaza", ignora: "lo ignora", ya_lo_tiene: "ya lo tiene"};
+let info = null, ocupado = false;
 const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 const resultados = {};  // fase -> conteos
 
 async function pedir(ruta, datos) {
@@ -94,24 +113,50 @@ async function pedir(ruta, datos) {
   return cuerpo;
 }
 
+// Agentes que no conocían el ataque y no son el malicioso: sobre ellos se calcula el resumen
+const esVictima = n => n.direccion !== info.especialista && n.direccion !== info.malicioso;
+
 function dibujarNodos() {
   $("nodos").innerHTML = info.nodos.map((n, k) => `
     <section class="nodo">
-      <h2>${n.nombre}</h2>
-      <div class="pesos">${n.pesos}</div>
+      <div id="cab${k}"></div>
       <div class="rotulo">${info.flujos_ataque} flujos de ${info.familia}</div>
       <div class="grilla" id="a${k}">${"<i></i>".repeat(info.flujos_ataque)}</div>
       <div class="cifras" id="ca${k}"></div>
       <div class="rotulo">${info.flujos_normales} flujos normales</div>
       <div class="grilla" id="n${k}">${"<i></i>".repeat(info.flujos_normales)}</div>
       <div class="cifras" id="cn${k}"></div>
+      <div id="rep${k}"></div>
     </section>`).join("");
+  dibujarEstado();
+}
+
+// Lo que cambia mientras corre el tráfico: modelo de cada agente, confianza en sus pares y conversación
+function dibujarEstado() {
+  const nombres = Object.fromEntries(info.nodos.map(n => [n.direccion, n.nombre]));
+  info.nodos.forEach((n, k) => {
+    const insignia = n.direccion === info.especialista ? `<span class="insignia">conoce ${info.familia}</span>`
+                   : n.direccion === info.malicioso ? `<span class="insignia malo">malicioso</span>` : "";
+    const origen = n.pesos === n.propio ? "modelo propio" : "modelo recibido de un par";
+    $("cab" + k).innerHTML = `<header><h2>${esc(n.nombre)}</h2>${insignia}</header>
+      <div class="pesos">${origen}: ${esc(n.pesos)}</div>`;
+    const pares = Object.entries(n.reputacion).filter(([par]) => nombres[par]);
+    $("rep" + k).innerHTML = !n.comunicar ? "" : `<div class="rotulo">Confianza en sus pares</div><div class="confianza">` +
+      pares.map(([par, valor]) => `<span>${esc(nombres[par])}</span>
+        <div class="barra ${valor < 0.2 ? "baja" : ""}"><span style="width:${100 * valor}%"></span></div>
+        <b>${valor.toFixed(2)}</b>`).join("") + `</div>`;
+  });
+  $("charla").innerHTML = info.conversacion.map(m => `
+    <li class="${m.decision}"><b>${esc(m.de)}</b> a <b>${esc(m.para)}</b>: «vi ${m.cantidad} flujos de ${esc(m.familia)},
+      te ofrezco un modelo». <b>${esc(m.para)} ${DECISION[m.decision] || esc(m.decision)}</b>
+      <small>${esc(m.archivo)}: ${esc(m.motivo)}. Confianza en ${esc(m.de)}: ${m.reputacion.toFixed(2)}</small></li>`).join("")
+    || `<li class="nada" style="border:0;padding-left:0">${info.fase === 1 ? "En esta fase los agentes no se comunican." : "Todavía no se dijeron nada."}</li>`;
 }
 
 function dibujarFases() {
   $("fases").innerHTML = info.fases.map((t, k) =>
-    `<button data-fase="${k + 1}" aria-pressed="${fase === k + 1}">${k + 1}. ${t}</button>`).join("");
-  $("mensaje").textContent = EXPLICACION[fase - 1];
+    `<button data-fase="${k + 1}" aria-pressed="${info.fase === k + 1}">${k + 1}. ${t}</button>`).join("");
+  $("mensaje").textContent = EXPLICACION[info.fase - 1];
 }
 
 function dibujarResumen() {
@@ -126,7 +171,6 @@ function dibujarResumen() {
 
 async function elegirFase(numero) {
   if (ocupado) return;
-  fase = numero;
   info = await pedir("/api/fase", {numero});
   dibujarFases(); dibujarNodos();
 }
@@ -134,35 +178,44 @@ async function elegirFase(numero) {
 async function enviar() {
   if (ocupado) return;
   ocupado = true; $("enviar").disabled = true;
-  dibujarNodos();
-  const total = {reconoce: 0, otro: 0, pasa: 0, falsas: 0, ataque: 0, normal: 0};
-  const porNodo = info.nodos.map(() => ({reconoce: 0, otro: 0, pasa: 0, falsas: 0, bien: 0}));
-  const maximo = Math.max(info.flujos_ataque, info.flujos_normales);
   try {
+    info = await pedir("/api/fase", {numero: info.fase});  // cada envío arranca con los agentes como al principio
+    dibujarNodos();
+    const total = {reconoce: 0, otro: 0, pasa: 0, falsas: 0, ataque: 0, normal: 0};
+    const porNodo = info.nodos.map(() => ({reconoce: 0, otro: 0, pasa: 0, falsas: 0, bloquea: 0}));
+    const maximo = Math.max(info.flujos_ataque, info.flujos_normales);
     for (let desde = 0; desde < maximo; desde += LOTE) {
-      const lote = await pedir("/api/atacar", {desde, hasta: desde + LOTE});
-      lote.nodos.forEach((nodo, k) => {
-        const c = porNodo[k];
-        nodo.ataque.forEach((familia, j) => {
+      const respuesta = await pedir("/api/atacar", {desde, hasta: desde + LOTE});
+      info = respuesta;
+      respuesta.lote.forEach((nodo, k) => {
+        const c = porNodo[k], cuenta = esVictima(info.nodos[k]);
+        nodo.ataque.familias.forEach((familia, j) => {
           const clase = familia === info.familia ? "reconoce" : familia === "Benign" ? "pasa" : "otro";
-          $("a" + k).children[desde + j].className = clase; c[clase]++; total[clase]++; total.ataque++;
+          const accion = nodo.ataque.acciones[j];
+          $("a" + k).children[desde + j].className = clase + (accion === "alertar" ? " alerta" : "");
+          c[clase]++; if (accion === "bloquear") c.bloquea++;
+          if (cuenta) { total[clase]++; total.ataque++; }
         });
-        nodo.normal.forEach((familia, j) => {
+        nodo.normal.familias.forEach((familia, j) => {
           const bien = familia === "Benign";
-          $("n" + k).children[desde + j].className = bien ? "normal" : "pasa";
-          bien ? c.bien++ : (c.falsas++, total.falsas++); total.normal++;
+          $("n" + k).children[desde + j].className = bien ? "normal" : "pasa" + (nodo.normal.acciones[j] === "alertar" ? " alerta" : "");
+          if (!bien) c.falsas++;
+          if (cuenta) { if (!bien) total.falsas++; total.normal++; }
         });
-        $("ca" + k).innerHTML = `<span>Reconoce: <b>${c.reconoce}</b></span><span>Otro nombre: <b>${c.otro}</b></span><span>Deja pasar: <b>${c.pasa}</b></span>`;
+        $("ca" + k).innerHTML = `<span>Reconoce: <b>${c.reconoce}</b></span><span>Otro nombre: <b>${c.otro}</b></span><span>Deja pasar: <b>${c.pasa}</b></span><span>Bloquea: <b>${c.bloquea}</b></span>`;
         $("cn" + k).innerHTML = `<span>Falsas alarmas: <b>${c.falsas}</b></span>`;
       });
+      dibujarEstado();
       await new Promise(listo => setTimeout(listo, PAUSA_MS));
     }
-    resultados[fase] = total;
+    resultados[info.fase] = total;
     dibujarResumen();
     const parte = Math.round(100 * total.reconoce / total.ataque);
-    $("mensaje").textContent = parte >= 90
-      ? `Los tres nodos reconocen el ataque (${parte}% de los flujos) sin haberlo visto nunca en sus datos.`
-      : `El ataque pasa: solo se reconoce el ${parte}% de los flujos y ${total.pasa} de ${total.ataque} se toman por tráfico normal.`;
+    const rechazos = info.conversacion.filter(m => m.decision === "rechaza" || m.decision === "ignora").length;
+    $("mensaje").textContent = (parte >= 80
+      ? `Los agentes que no conocían el ataque reconocen el ${parte}% de los flujos: aceptaron el modelo que les ofreció A.`
+      : `El ataque pasa: los agentes que no lo conocían reconocen solo el ${parte}% de los flujos y toman ${total.pasa} de ${total.ataque} por tráfico normal.`)
+      + (info.fase === 3 ? ` Hubo ${rechazos} ofertas rechazadas o ignoradas.` : "");
   } catch (error) {
     $("mensaje").textContent = "Error: " + error.message;
   }
@@ -174,8 +227,9 @@ $("enviar").addEventListener("click", enviar);
 
 (async () => {
   info = await pedir("/api/estado");
-  $("sub").textContent = `El ataque nuevo es ${info.familia}. Solo la organización A lo tiene en sus datos; B, C y D ` +
-    `nunca lo vieron. Cada cuadrado es un flujo de red del conjunto de prueba, clasificado por el contenedor de ese nodo.`;
+  $("sub").textContent = `El ataque nuevo es ${info.familia}. Solo la organización A lo tiene en sus datos. Cada organización ` +
+    `es un agente en su propio contenedor: clasifica el tráfico, decide qué bloquear y decide si acepta lo que le ofrecen ` +
+    `los demás. Cada cuadrado es un flujo de red del conjunto de prueba.`;
   // ?auto=N corre la fase N sin tocar nada (sirve para revisar la página con una captura)
   const auto = +new URLSearchParams(location.search).get("auto");
   await elegirFase(auto || 1); dibujarResumen();

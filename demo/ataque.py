@@ -1,14 +1,18 @@
 """
-ataque.py — Envía tráfico a los nodos de la demo y muestra qué detecta cada uno.
+ataque.py — Envía tráfico a los agentes de la demo y muestra qué hace cada uno.
 
 Usa flujos del conjunto de prueba (ningún modelo los vio al entrenar): una
 parte es tráfico normal y la otra pertenece a la familia de ataque "nueva",
-la que solo una organización (la A, que no participa de la demo) había visto.
+la que solo la organización A había visto.
 
-Repite el mismo envío en tres momentos:
-    1. Cada organización usa su propio modelo, entrenado solo con sus datos.
-    2. Reciben el modelo global de la federación con promedio simple (FedAvg).
-    3. Reciben el modelo global de la federación con máscara de clases.
+Repite el mismo envío en tres fases:
+    1. Cada agente por su cuenta: nadie se comunica.
+    2. Los agentes cooperan: el que reconoce el ataque ofrece un modelo a sus pares
+       y cada uno decide si lo acepta.
+    3. Lo mismo, con un agente malicioso que ofrece un modelo envenenado.
+
+Este script solo envía tráfico y prepara cada fase. Qué modelo usa cada agente
+lo deciden los agentes entre ellos (ver nodo.py).
 
 Uso (desde la carpeta demo/, con los nodos ya levantados):
     docker compose run --rm atacante
@@ -21,21 +25,23 @@ import os
 import sys
 import time
 import urllib.request
+from collections import Counter
 from pathlib import Path
 
 from src.config import COLUMNA_ETIQUETA, FAMILIAS
 
 DIR_MODELOS = Path(os.environ.get("DIR_MODELOS", "/modelos"))
 FAMILIA = os.environ.get("FAMILIA", "PortScan")
-MODELO = os.environ.get("MODELO", "mlp")
-NODOS = os.environ.get("NODOS", "nodo-b,nodo-c,nodo-d").split(",")
+NODOS = os.environ.get("NODOS", "nodo-a,nodo-b,nodo-c,nodo-d,nodo-e").split(",")
+ESPECIALISTA = os.environ.get("ESPECIALISTA", "nodo-a")  # el único agente que conoce el ataque nuevo
+MALICIOSO = os.environ.get("MALICIOSO", "nodo-e")        # el agente con el modelo envenenado
 PUERTO = 8000
+LOTE = 15  # flujos por envío: los agentes conversan entre un lote y el siguiente
 
-# (título, archivo de pesos que recibe cada nodo; None = se queda con el que ya tiene)
 FASES = [
-    ("Cada organización por su cuenta (sin federación)", None),
-    ("Federación con promedio simple (FedAvg)", f"e3_{MODELO}_{FAMILIA}_federado.pt"),
-    ("Federación con máscara de clases", f"e3_{MODELO}_{FAMILIA}_federado_mascara.pt"),
+    "Cada agente por su cuenta",
+    "Los agentes cooperan",
+    "Cooperan, y hay un agente malicioso",
 ]
 
 
@@ -77,23 +83,66 @@ def leer_flujos() -> tuple[list[list[float]], list[list[float]]]:
     return benignos, ataque
 
 
-def enviar(benignos, ataque) -> list[dict]:
-    """Envía el tráfico a cada nodo, imprime qué hizo con él y devuelve los conteos."""
-    print(f"  {'Nodo':<16}{'Reconoce ' + FAMILIA:>20}{'Lo toma por otro ataque':>26}"
-          f"{'Lo deja pasar':>16}{'Falsas alarmas':>17}")
-    resultados = []
+def nodos_de_fase(numero: int) -> list[str]:
+    """Agentes que reciben tráfico en esa fase: el malicioso solo aparece en la 3."""
+    return [nodo for nodo in NODOS if numero == 3 or nodo != MALICIOSO]
+
+
+def preparar_fase(numero: int) -> None:
+    """Cada agente vuelve a su modelo propio. Desde la fase 2 pueden hablar entre ellos."""
     for nodo in NODOS:
-        nombre = pedir(nodo, "/estado")["nombre"]
-        sobre_ataque = pedir(nodo, "/analizar", {"flujos": ataque})["familias"]
-        sobre_benigno = pedir(nodo, "/analizar", {"flujos": benignos})["familias"]
-        r = {"reconocidos": sobre_ataque.count(FAMILIA), "pasaron": sobre_ataque.count("Benign"),
-             "falsas": len(sobre_benigno) - sobre_benigno.count("Benign")}
-        r["otros"] = len(ataque) - r["reconocidos"] - r["pasaron"]
-        resultados.append(r)
-        print(f"  {nombre:<16}{porcentaje(r['reconocidos'], len(ataque)):>20}"
-              f"{porcentaje(r['otros'], len(ataque)):>26}{porcentaje(r['pasaron'], len(ataque)):>16}"
-              f"{porcentaje(r['falsas'], len(benignos)):>17}")
-    return resultados
+        pedir(nodo, "/reiniciar", {"comunicar": numero >= 2 and nodo in nodos_de_fase(numero)})
+
+
+def enviar_lote(nodos: list[str], ataque: list, benignos: list, desde: int, hasta: int) -> dict:
+    """
+    Envía a cada agente los flujos [desde, hasta) de cada tipo. Devuelve {nodo: {"ataque": ..., "normal": ...}}.
+    Se recorre la lista al revés para que el agente que conoce el ataque (el primero)
+    reciba su lote al final: así el aviso a sus pares llega después de que el primer lote ya les pasó.
+    """
+    return {nodo: {"ataque": pedir(nodo, "/analizar", {"flujos": ataque[desde:hasta]}),
+                   "normal": pedir(nodo, "/analizar", {"flujos": benignos[desde:hasta]})}
+            for nodo in reversed(nodos)}
+
+
+def conversacion(estados: list[dict]) -> list[dict]:
+    """Todos los mensajes que recibieron los agentes, en orden de llegada."""
+    return sorted((mensaje for estado in estados for mensaje in estado["mensajes"]), key=lambda m: m["hora"])
+
+
+def contar(sobre_ataque: dict, sobre_benigno: dict) -> dict:
+    """Resume lo que hizo un agente con un lote."""
+    familias = sobre_ataque["familias"]
+    r = {"reconocidos": familias.count(FAMILIA), "pasaron": familias.count("Benign"),
+         "bloqueados": sobre_ataque["acciones"].count("bloquear"),
+         "falsas": len(sobre_benigno["familias"]) - sobre_benigno["familias"].count("Benign")}
+    r["otros"] = len(familias) - r["reconocidos"] - r["pasaron"]
+    return r
+
+
+def enviar(nodos: list[str], benignos: list, ataque: list) -> dict:
+    """Envía todo el tráfico de a lotes, imprime qué hizo cada agente y devuelve los conteos por nodo."""
+    totales = {nodo: Counter() for nodo in nodos}
+    for desde in range(0, max(len(ataque), len(benignos)), LOTE):
+        for nodo, respuestas in enviar_lote(nodos, ataque, benignos, desde, desde + LOTE).items():
+            totales[nodo].update(contar(respuestas["ataque"], respuestas["normal"]))
+
+    estados = [pedir(nodo, "/estado") for nodo in nodos]
+    print(f"  {'Agente':<16}{'Reconoce ' + FAMILIA:>20}{'Otro ataque':>14}{'Lo deja pasar':>16}"
+          f"{'Bloqueados':>14}{'Falsas alarmas':>17}   Modelo al terminar")
+    for nodo, estado in zip(nodos, estados):
+        r = totales[nodo]
+        print(f"  {estado['nombre']:<16}{porcentaje(r['reconocidos'], len(ataque)):>20}"
+              f"{porcentaje(r['otros'], len(ataque)):>14}{porcentaje(r['pasaron'], len(ataque)):>16}"
+              f"{porcentaje(r['bloqueados'], len(ataque)):>14}{porcentaje(r['falsas'], len(benignos)):>17}"
+              f"   {estado['pesos']}")
+    mensajes = conversacion(estados)
+    if mensajes:
+        print("  Conversación entre agentes:")
+        for m in mensajes:
+            print(f"    {m['de']} -> {m['para']}: \"vi {m['cantidad']} flujos de {m['familia']}, te ofrezco "
+                  f"{m['archivo']}\" => {m['decision']} ({m['motivo']}; reputación {m['reputacion']:.2f})")
+    return totales
 
 
 def porcentaje(parte: int, total: int) -> str:
@@ -101,31 +150,30 @@ def porcentaje(parte: int, total: int) -> str:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Demo: tráfico de un ataque nuevo contra los nodos")
+    parser = argparse.ArgumentParser(description="Demo: tráfico de un ataque nuevo contra los agentes")
     parser.add_argument("--sin-pausas", action="store_true", help="no espera Enter entre una fase y la siguiente")
     args = parser.parse_args()
     assert FAMILIA in FAMILIAS[1:], f"Familia desconocida: {FAMILIA}"
 
     esperar_nodos()
     benignos, ataque = leer_flujos()
-    print(f"\nAtaque nuevo: {FAMILIA}. Solo la organización A lo tiene en sus datos; B, C y D nunca lo vieron.")
-    print(f"A cada nodo se le envían {len(ataque)} flujos de {FAMILIA} y {len(benignos)} flujos normales "
-          f"(del conjunto de prueba).")
+    sin_el_ataque = [nodo for nodo in NODOS if nodo not in (ESPECIALISTA, MALICIOSO)]
+    print(f"\nAtaque nuevo: {FAMILIA}. Solo la organización A lo tiene en sus datos.")
+    print(f"A cada agente se le envían {len(ataque)} flujos de {FAMILIA} y {len(benignos)} flujos normales "
+          f"(del conjunto de prueba), de a {LOTE}.")
 
     resumen = []
-    for numero, (titulo, pesos) in enumerate(FASES, start=1):
+    for numero, titulo in enumerate(FASES, start=1):
         if numero > 1 and not args.sin_pausas:
             input("\nEnter para continuar...")
         print(f"\n=== Fase {numero}: {titulo} ===")
-        if pesos:
-            for nodo in NODOS:
-                pedir(nodo, "/modelo", {"archivo": pesos})
-            print(f"  El servidor envió el modelo global a los {len(NODOS)} nodos ({pesos}).")
-        resultados = enviar(benignos, ataque)
-        resumen.append((titulo, sum(r["reconocidos"] for r in resultados), sum(r["pasaron"] for r in resultados)))
+        preparar_fase(numero)
+        totales = enviar(nodos_de_fase(numero), benignos, ataque)
+        resumen.append((titulo, sum((totales[nodo] for nodo in sin_el_ataque), Counter())))
 
-    total = len(ataque) * len(NODOS)
-    print(f"\n=== Resumen: {total} flujos de {FAMILIA} entre los {len(NODOS)} nodos ===")
-    for titulo, reconocidos, pasaron in resumen:
-        print(f"  {titulo:<50} reconocidos {porcentaje(reconocidos, total):>12} | "
-              f"pasaron como normales {porcentaje(pasaron, total):>12}")
+    total = len(ataque) * len(sin_el_ataque)
+    print(f"\n=== Resumen: {total} flujos de {FAMILIA} entre los {len(sin_el_ataque)} agentes que no lo conocían ===")
+    for titulo, r in resumen:
+        print(f"  {titulo:<38} reconocidos {porcentaje(r['reconocidos'], total):>12} | "
+              f"pasaron como normales {porcentaje(r['pasaron'], total):>12} | "
+              f"falsas alarmas {porcentaje(r['falsas'], len(benignos) * len(sin_el_ataque)):>10}")

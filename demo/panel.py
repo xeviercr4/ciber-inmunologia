@@ -1,48 +1,48 @@
 """
 panel.py — Panel web de la demo (http://localhost:8080).
 
-Sirve una página que muestra los tres nodos y permite, con botones:
-  - elegir qué pesos tiene cargados cada nodo (las tres fases de la demo), y
-  - enviarles el tráfico y ver, flujo por flujo, qué hizo cada nodo con él.
+Sirve una página que muestra a los agentes y permite, con botones:
+  - elegir la fase (si los agentes pueden hablar entre ellos y si participa el malicioso), y
+  - enviarles el tráfico y ver, flujo por flujo, qué hizo cada uno y qué se dijeron.
 
-El panel no clasifica nada: solo reenvía los pedidos a los nodos (los otros
-contenedores) y dibuja lo que responden. Es la versión visual de ataque.py.
+El panel no clasifica nada ni reparte modelos: solo envía tráfico a los agentes
+(los otros contenedores) y dibuja lo que responden. Es la versión visual de ataque.py.
 """
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from demo.ataque import FAMILIA, FASES, MODELO, NODOS, PUERTO, esperar_nodos, leer_flujos, pedir
+from demo.ataque import (
+    ESPECIALISTA, FAMILIA, FASES, MALICIOSO, PUERTO, conversacion, enviar_lote, esperar_nodos, leer_flujos,
+    nodos_de_fase, pedir, preparar_fase,
+)
 
 PAGINA = Path(__file__).with_name("panel.html").read_bytes()
 BENIGNOS, ATAQUE = [], []  # se llenan al arrancar
-
-
-def pesos_de_fase(numero: int, posicion: int) -> str:
-    """Archivo de pesos que le toca al nodo `posicion` (0, 1, 2) en la fase `numero` (1, 2, 3)."""
-    if numero == 1:  # sin federación: cada nodo vuelve a su propio modelo aislado
-        return f"e3_{MODELO}_{FAMILIA}_aislado_nodo{posicion + 1}.pt"
-    return FASES[numero - 1][1]
+fase_actual = 1
 
 
 def estado() -> dict:
-    return {"familia": FAMILIA, "fases": [titulo for titulo, _ in FASES],
+    """Lo que la página necesita para dibujarse: los agentes de la fase y su conversación."""
+    nodos = [pedir(nodo, "/estado") for nodo in nodos_de_fase(fase_actual)]
+    return {"familia": FAMILIA, "fases": FASES, "fase": fase_actual,
+            "especialista": ESPECIALISTA, "malicioso": MALICIOSO,
             "flujos_ataque": len(ATAQUE), "flujos_normales": len(BENIGNOS),
-            "nodos": [pedir(nodo, "/estado") for nodo in NODOS]}
+            "nodos": nodos, "conversacion": conversacion(nodos)}
 
 
 def cambiar_fase(numero: int) -> dict:
-    """El 'servidor' entrega a cada nodo los pesos de esa fase."""
-    for posicion, nodo in enumerate(NODOS):
-        pedir(nodo, "/modelo", {"archivo": pesos_de_fase(numero, posicion)})
+    global fase_actual
+    fase_actual = numero
+    preparar_fase(numero)
     return estado()
 
 
 def atacar(desde: int, hasta: int) -> dict:
-    """Envía a cada nodo los flujos [desde, hasta) de cada tipo y devuelve lo que respondió."""
-    return {"nodos": [{"ataque": pedir(nodo, "/analizar", {"flujos": ATAQUE[desde:hasta]})["familias"],
-                       "normal": pedir(nodo, "/analizar", {"flujos": BENIGNOS[desde:hasta]})["familias"]}
-                      for nodo in NODOS]}
+    """Envía un lote a cada agente y devuelve lo que respondieron y cómo quedaron después."""
+    nodos = nodos_de_fase(fase_actual)
+    respuestas = enviar_lote(nodos, ATAQUE, BENIGNOS, desde, hasta)
+    return {"lote": [respuestas[nodo] for nodo in nodos], **estado()}
 
 
 class Pedidos(BaseHTTPRequestHandler):

@@ -31,14 +31,17 @@ from experiments.comun import (
 )
 from src.centralized import entrenar_aislados, entrenar_autoencoder, evaluar_autoencoder
 from src.config import COLUMNA_ETIQUETA, DIR_MODELOS, FAMILIAS, SEMILLA
-from src.federated import ejecutar_federado
+from src.federated import ejecutar_federado, invertir_etiquetas
 from src.partition import crear_particion, quitar_familia
-from src.train_utils import cargar_datos
+from src.train_utils import cargar_datos, crear_modelo, entrenar, guardar_modelo
 
 NODO_CON_ATAQUE = 0   # el único nodo que vio la familia nueva
 NODO_SIN_ATAQUE = 1   # nodo que se usa para las referencias
-NODOS_DEMO = [1, 2, 3]  # con --guardar: nodos que nunca vieron el ataque y cuyo modelo aislado se guarda
-FLUJOS_DEMO = 300       # con --guardar: flujos de cada tipo (benignos y del ataque) que se guardan
+# Con --guardar (demo con Docker):
+NODOS_DEMO = [0, 1, 2, 3]  # nodos cuyo modelo aislado se guarda: el que vio el ataque y tres que no
+NODO_MALICIOSO = 4         # nodo que hace de agente malicioso: entrena con las etiquetas invertidas
+FLUJOS_DEMO = 300          # flujos de cada tipo (benignos y del ataque) que se envían en la demo
+VALIDACION_DEMO = 500      # flujos propios con los que cada agente prueba un modelo que le ofrecen
 UMBRALES = [0.5, 0.8, 0.9]
 SERIES = {"recall": "Reconocida como esa familia", "detectado": "Marcada como ataque (cualquier familia)"}
 
@@ -51,10 +54,18 @@ def agregar_argumentos(parser):
                         help="guarda los pesos y una muestra de flujos para la demo con Docker")
 
 
-def guardar_flujos_demo(familia: str) -> None:
+def guardar_csv_de_flujos(X: np.ndarray, y: np.ndarray, archivo: str) -> None:
+    tabla = pd.DataFrame(X)
+    tabla[COLUMNA_ETIQUETA] = y
+    tabla.to_csv(DIR_MODELOS / archivo, index=False)
+
+
+def guardar_flujos_demo(familia: str, particion: dict) -> None:
     """
-    Guarda una muestra del test global (flujos que ningún modelo usó para entrenar):
-    FLUJOS_DEMO benignos y FLUJOS_DEMO de la familia nueva. Es el tráfico que se envía en la demo.
+    Guarda dos tipos de muestra del conjunto de prueba (flujos que ningún modelo usó para entrenar):
+      - el tráfico que se envía en la demo: FLUJOS_DEMO benignos y FLUJOS_DEMO de la familia nueva;
+      - la validación de cada agente: VALIDACION_DEMO flujos de su propio test local, con los que
+        decide si acepta un modelo que le ofrecen. No se repiten con el tráfico de la demo.
     """
     _, _, X_test, y_test = cargar_datos()
     azar = np.random.default_rng(SEMILLA)
@@ -62,9 +73,26 @@ def guardar_flujos_demo(familia: str) -> None:
     for clase in (0, FAMILIAS.index(familia)):
         indices = np.flatnonzero(y_test == clase)
         elegidos.extend(azar.choice(indices, min(FLUJOS_DEMO, len(indices)), replace=False))
-    tabla = pd.DataFrame(X_test[elegidos])
-    tabla[COLUMNA_ETIQUETA] = y_test[elegidos]
-    tabla.to_csv(DIR_MODELOS / f"e3_{familia}_flujos.csv", index=False)
+    guardar_csv_de_flujos(X_test[elegidos], y_test[elegidos], f"e3_{familia}_flujos.csv")
+
+    for nodo in NODOS_DEMO + [NODO_MALICIOSO]:
+        propios = np.setdiff1d(particion["test"][nodo], elegidos)
+        if nodo != NODO_CON_ATAQUE:  # los demás no conocen la familia nueva: tampoco la tienen para validar
+            propios = propios[y_test[propios] != FAMILIAS.index(familia)]
+        muestra = azar.choice(propios, min(VALIDACION_DEMO, len(propios)), replace=False)
+        etiquetas = y_test[muestra]
+        if nodo == NODO_MALICIOSO:  # sus datos están envenenados: también los que usa para validar
+            etiquetas = invertir_etiquetas(etiquetas)
+        guardar_csv_de_flujos(X_test[muestra], etiquetas, f"e3_{familia}_validacion_nodo{nodo}.csv")
+
+
+def guardar_modelo_envenenado(particion: dict, nombre_modelo: str, epocas: int, archivo: str) -> None:
+    """Modelo del agente malicioso: entrenado con sus datos y las etiquetas invertidas (como en E4)."""
+    X_train, y_train, _, _ = cargar_datos()
+    indices = particion["train"][NODO_MALICIOSO]
+    modelo = crear_modelo(nombre_modelo)
+    entrenar(modelo, X_train[indices], invertir_etiquetas(y_train[indices]), epocas=epocas)
+    guardar_modelo(modelo, nombre_modelo, archivo)
 
 
 if __name__ == "__main__":
@@ -85,13 +113,15 @@ if __name__ == "__main__":
                                  guardar_como=f"{base}_federado{sufijo}" if args.guardar else None)
 
     # --- Referencias: un nodo que nunca vio el ataque, sin federación ---
-    # Para la demo se entrenan (y guardan) varios nodos aislados; la referencia sigue siendo el primero
+    # Para la demo se entrenan (y guardan) varios nodos aislados; la referencia sigue siendo NODO_SIN_ATAQUE
     nodos = NODOS_DEMO if args.guardar else [NODO_SIN_ATAQUE]
     solo_esos_nodos = {parte: [particion[parte][n] for n in nodos] for parte in ("train", "test")}
     nombres = [f"{base}_aislado_nodo{n}" for n in nodos] if args.guardar else None
-    aislado = entrenar_aislados(solo_esos_nodos, args.modelo, args.rondas, guardar_como=nombres)[0][-1]
+    aislados = entrenar_aislados(solo_esos_nodos, args.modelo, args.rondas, guardar_como=nombres)
+    aislado = aislados[nodos.index(NODO_SIN_ATAQUE)][-1]
     if args.guardar:
-        guardar_flujos_demo(familia)
+        guardar_modelo_envenenado(particion, args.modelo, args.rondas, f"{base}_envenenado")
+        guardar_flujos_demo(familia, particion)
         print(f"  Pesos y flujos para la demo guardados en {DIR_MODELOS}")
     indices = particion["train"][NODO_SIN_ATAQUE]
     autoencoder, umbral = entrenar_autoencoder(X_train[indices][y_train[indices] == 0], args.rondas)
