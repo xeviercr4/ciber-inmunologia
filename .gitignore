@@ -15,5 +15,11 @@ __pycache__/
 .DS_Store
 .vscode/
 
-# Resultados de pruebas con datos sintéticos (quitar esta línea al tener resultados reales)
-experiments/resultados/
+# Resultados de los experimentos: no se versionan (se generan en Colab y quedan en Drive)...
+experiments/resultados/*
+# ...salvo los pesos entrenados con los datos reales, para poder usarlos sin reentrenar:
+# los de E1 y los de la demo con Docker (con su muestra de flujos)
+!experiments/resultados/modelos/
+experiments/resultados/modelos/*
+!experiments/resultados/modelos/e1_*.pt
+!experiments/resultados/modelos/e3_*

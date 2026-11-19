@@ -11,22 +11,18 @@ Muestra el experimento E3 (zero-day) con contenedores en vez de gráficas.
 
 Acá no se entrena nada: los pesos salen de Colab.
 
-## 1. Generar los pesos (en Colab, una sola vez)
+## 1. Los pesos
 
-Corré la celda "Pesos para la demo con Docker" del cuaderno. Ejecuta:
+Ya vienen en el repositorio, en `experiments/resultados/modelos/` (familia PortScan, modelo MLP, 20 rondas), así que no hace falta entrenar nada.
+
+Para generarlos de nuevo, o para otra familia, corré en Colab la celda "Pesos para la demo con Docker" del cuaderno. Ejecuta:
 
 ```
 python -m experiments.e3_zero_day --familia PortScan --guardar
 python -m experiments.e3_zero_day --familia PortScan --guardar --mascara
 ```
 
-Después descargá el zip de resultados y copiá estos seis archivos de su carpeta `modelos/` a `experiments/resultados/modelos/`:
-
-```
-e3_mlp_PortScan_aislado_nodo1.pt     e3_mlp_PortScan_federado.pt
-e3_mlp_PortScan_aislado_nodo2.pt     e3_mlp_PortScan_federado_mascara.pt
-e3_mlp_PortScan_aislado_nodo3.pt     e3_PortScan_flujos.csv
-```
+y deja en la carpeta `modelos/` de los resultados tres archivos `aislado_nodo`, `federado`, `federado_mascara` y la muestra `e3_<familia>_flujos.csv`. Copialos a `experiments/resultados/modelos/`.
 
 ## 2. Correr la demo
 
