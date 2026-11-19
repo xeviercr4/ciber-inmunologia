@@ -1,0 +1,42 @@
+# Demo del experimento E3 (zero-day) con contenedores.
+#
+# Tres organizaciones que nunca vieron el ataque nuevo, cada una en su contenedor,
+# y un cuarto contenedor que les envía tráfico. Instrucciones en demo/README.md.
+#
+# Variables opcionales: FAMILIA (PortScan), MODELO (mlp) y DIR_MODELOS (carpeta con los .pt).
+
+x-nodo: &nodo
+  build:
+    context: ..
+    dockerfile: demo/Dockerfile
+  image: ciber-inmunologia-demo
+  volumes:
+    - ${DIR_MODELOS:-../experiments/resultados/modelos}:/modelos:ro   # solo lectura
+
+services:
+  nodo-b:
+    <<: *nodo
+    environment:
+      NOMBRE: Organización B
+      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo1.pt
+  nodo-c:
+    <<: *nodo
+    environment:
+      NOMBRE: Organización C
+      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo2.pt
+  nodo-d:
+    <<: *nodo
+    environment:
+      NOMBRE: Organización D
+      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo3.pt
+
+  # No arranca con "up": se lanza a mano con "docker compose run --rm atacante"
+  atacante:
+    <<: *nodo
+    profiles: [ataque]
+    command: python -u -m demo.ataque
+    environment:
+      FAMILIA: ${FAMILIA:-PortScan}
+      MODELO: ${MODELO:-mlp}
+      NODOS: nodo-b,nodo-c,nodo-d
+    depends_on: [nodo-b, nodo-c, nodo-d]

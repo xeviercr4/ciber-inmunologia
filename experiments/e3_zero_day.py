@@ -17,19 +17,28 @@ Uso:
     python -m experiments.e3_zero_day --familia Bot --modelo transformer --rondas 10
     python -m experiments.e3_zero_day --mascara   # cada nodo entrena solo sobre las clases que conoce
     python -m experiments.e3_resumen     # compara todas las familias ya corridas
+
+    # Guardar los pesos y una muestra de flujos para la demo con Docker (ver demo/README.md):
+    python -m experiments.e3_zero_day --familia PortScan --guardar
+    python -m experiments.e3_zero_day --familia PortScan --guardar --mascara
 """
+import numpy as np
+import pandas as pd
+
 from experiments.comun import (
     COLOR_REFERENCIA, COLOR_TEXTO_SUAVE, dibujar_lineas, guardar_csv, guardar_figura, leer_argumentos,
     nueva_figura, preparar_ejes,
 )
 from src.centralized import entrenar_aislados, entrenar_autoencoder, evaluar_autoencoder
-from src.config import FAMILIAS
+from src.config import COLUMNA_ETIQUETA, DIR_MODELOS, FAMILIAS, SEMILLA
 from src.federated import ejecutar_federado
 from src.partition import crear_particion, quitar_familia
 from src.train_utils import cargar_datos
 
 NODO_CON_ATAQUE = 0   # el único nodo que vio la familia nueva
 NODO_SIN_ATAQUE = 1   # nodo que se usa para las referencias
+NODOS_DEMO = [1, 2, 3]  # con --guardar: nodos que nunca vieron el ataque y cuyo modelo aislado se guarda
+FLUJOS_DEMO = 300       # con --guardar: flujos de cada tipo (benignos y del ataque) que se guardan
 UMBRALES = [0.5, 0.8, 0.9]
 SERIES = {"recall": "Reconocida como esa familia", "detectado": "Marcada como ataque (cualquier familia)"}
 
@@ -38,6 +47,24 @@ def agregar_argumentos(parser):
     parser.add_argument("--familia", choices=FAMILIAS[1:], default="DDoS", help="familia que hace de zero-day")
     parser.add_argument("--mascara", action="store_true",
                         help="cada nodo entrena solo sobre las clases que tiene en sus datos")
+    parser.add_argument("--guardar", action="store_true",
+                        help="guarda los pesos y una muestra de flujos para la demo con Docker")
+
+
+def guardar_flujos_demo(familia: str) -> None:
+    """
+    Guarda una muestra del test global (flujos que ningún modelo usó para entrenar):
+    FLUJOS_DEMO benignos y FLUJOS_DEMO de la familia nueva. Es el tráfico que se envía en la demo.
+    """
+    _, _, X_test, y_test = cargar_datos()
+    azar = np.random.default_rng(SEMILLA)
+    elegidos = []
+    for clase in (0, FAMILIAS.index(familia)):
+        indices = np.flatnonzero(y_test == clase)
+        elegidos.extend(azar.choice(indices, min(FLUJOS_DEMO, len(indices)), replace=False))
+    tabla = pd.DataFrame(X_test[elegidos])
+    tabla[COLUMNA_ETIQUETA] = y_test[elegidos]
+    tabla.to_csv(DIR_MODELOS / f"e3_{familia}_flujos.csv", index=False)
 
 
 if __name__ == "__main__":
@@ -49,14 +76,23 @@ if __name__ == "__main__":
 
     particion = quitar_familia(crear_particion("iid"), familia, NODO_CON_ATAQUE)
     X_train, y_train, _, _ = cargar_datos()
+    base = f"e3_{args.modelo}_{familia}"
+    sufijo = "_mascara" if args.mascara else ""
 
     # --- Federado ---
     federado = ejecutar_federado("fedavg", particion, args.modelo, args.rondas, mostrar=False,
-                                 mascara=args.mascara)
+                                 mascara=args.mascara,
+                                 guardar_como=f"{base}_federado{sufijo}" if args.guardar else None)
 
     # --- Referencias: un nodo que nunca vio el ataque, sin federación ---
-    solo_ese_nodo = {parte: [particion[parte][NODO_SIN_ATAQUE]] for parte in ("train", "test")}
-    aislado = entrenar_aislados(solo_ese_nodo, args.modelo, args.rondas)[0][-1]
+    # Para la demo se entrenan (y guardan) varios nodos aislados; la referencia sigue siendo el primero
+    nodos = NODOS_DEMO if args.guardar else [NODO_SIN_ATAQUE]
+    solo_esos_nodos = {parte: [particion[parte][n] for n in nodos] for parte in ("train", "test")}
+    nombres = [f"{base}_aislado_nodo{n}" for n in nodos] if args.guardar else None
+    aislado = entrenar_aislados(solo_esos_nodos, args.modelo, args.rondas, guardar_como=nombres)[0][-1]
+    if args.guardar:
+        guardar_flujos_demo(familia)
+        print(f"  Pesos y flujos para la demo guardados en {DIR_MODELOS}")
     indices = particion["train"][NODO_SIN_ATAQUE]
     autoencoder, umbral = entrenar_autoencoder(X_train[indices][y_train[indices] == 0], args.rondas)
     metricas_ae = evaluar_autoencoder(autoencoder, umbral)
@@ -70,7 +106,7 @@ if __name__ == "__main__":
                    "aislado": aislado[f"detectado_{familia}"], "autoencoder": metricas_ae[f"detectado_{familia}"]}
         filas.append({"serie": "recall", "valor": fila[f"recall_{familia}"], **comunes})
         filas.append({"serie": "detectado", "valor": fila[f"detectado_{familia}"], **comunes})
-    nombre = f"e3_{args.modelo}_{familia}" + ("_mascara" if args.mascara else "")
+    nombre = base + sufijo
     tabla = guardar_csv(filas, nombre)
 
     # --- ¿En cuántas rondas se alcanza cada umbral? ---

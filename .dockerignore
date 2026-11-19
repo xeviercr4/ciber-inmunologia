@@ -1,0 +1,5 @@
+# La imagen de la demo solo necesita src/ y demo/
+*
+!src/
+!demo/
+**/__pycache__/

@@ -87,7 +87,9 @@ def guardar_modelo(modulo: nn.Module, nombre_modelo: str, archivo: str, parte: s
     """
     DIR_MODELOS.mkdir(parents=True, exist_ok=True)
     pesos = {clave: valor.cpu() for clave, valor in modulo.state_dict().items()}
-    torch.save({"modelo": nombre_modelo, "parte": parte, "pesos": pesos}, DIR_MODELOS / f"{archivo}.pt")
+    # Se anota la cantidad de características para poder reconstruir el modelo sin tener los datos (demo/)
+    torch.save({"modelo": nombre_modelo, "parte": parte, "pesos": pesos,
+                "caracteristicas": cargar_datos()[0].shape[1]}, DIR_MODELOS / f"{archivo}.pt")
 
 
 def cargar_modelo(ruta) -> nn.Module:

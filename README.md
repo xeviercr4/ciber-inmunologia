@@ -59,6 +59,7 @@ python -m experiments.e2_heterogeneidad   # FedAvg vs. FedProx vs. cabezas local
 python -m experiments.e3_zero_day         # un ataque nuevo que solo ve un nodo (--familia Bot, Web, ...)
 python -m experiments.e3_zero_day --mascara   # variante: cada nodo entrena solo sobre las clases que conoce
 python -m experiments.e3_resumen          # una figura con todas las familias ya corridas en E3 (--mascara para la variante)
+python -m experiments.e3_zero_day --familia PortScan --guardar   # guarda pesos y flujos para la demo con Docker (demo/README.md)
 python -m experiments.e4_maliciosos       # 1 a 3 nodos maliciosos: FedAvg vs. Krum vs. mediana
 ```
 

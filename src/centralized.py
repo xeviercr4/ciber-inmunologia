@@ -43,20 +43,24 @@ def entrenar_centralizado(nombre_modelo: str, epocas: int) -> tuple[torch.nn.Mod
     return modelo, entrenar_y_evaluar(modelo, X_train, y_train, epocas)
 
 
-def entrenar_aislados(particion: dict, nombre_modelo: str, epocas: int) -> list[list[dict]]:
+def entrenar_aislados(particion: dict, nombre_modelo: str, epocas: int,
+                      guardar_como: list[str] | None = None) -> list[list[dict]]:
     """
     Entrena un modelo por nodo, cada uno solo con sus datos.
     Devuelve una lista (un elemento por nodo) con las métricas por época.
     Cada modelo se mide en el test global ("f1_macro") y en el test local del nodo ("f1_local").
+    Si se pasa `guardar_como` (un nombre de archivo por nodo), guarda los pesos de cada modelo.
     """
     X_train, y_train, X_test, y_test = cargar_datos()
     historiales = []
-    for indices_train, indices_test in zip(particion["train"], particion["test"]):
+    for nodo, (indices_train, indices_test) in enumerate(zip(particion["train"], particion["test"])):
         modelo = crear_modelo(nombre_modelo)
         historiales.append(entrenar_y_evaluar(
             modelo, X_train[indices_train], y_train[indices_train], epocas,
             X_local=X_test[indices_test], y_local=y_test[indices_test],
         ))
+        if guardar_como:
+            guardar_modelo(modelo, nombre_modelo, guardar_como[nodo])
     return historiales
 
 
