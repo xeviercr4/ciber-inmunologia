@@ -30,7 +30,18 @@ services:
       NOMBRE: Organización D
       PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo3.pt
 
-  # No arranca con "up": se lanza a mano con "docker compose run --rm atacante"
+  # Panel web: http://localhost:8080
+  panel:
+    <<: *nodo
+    command: python -u -m demo.panel
+    ports: ["8080:8000"]
+    environment:
+      FAMILIA: ${FAMILIA:-PortScan}
+      MODELO: ${MODELO:-mlp}
+      NODOS: nodo-b,nodo-c,nodo-d
+    depends_on: [nodo-b, nodo-c, nodo-d]
+
+  # Versión de terminal del panel. No arranca con "up": se lanza a mano con "docker compose run --rm atacante"
   atacante:
     <<: *nodo
     profiles: [ataque]

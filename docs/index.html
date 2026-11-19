@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ciber-Inmunología Swarm</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Disposición: cabecera con tres cifras, pestañas, y en cada pestaña controles arriba y gráficos abajo. */
+:root {
+  --bg: #f6f6f3; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --line: #d9d8d0;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --ref: #8a8983;
+  --tint: #e6effa; --on-accent: #ffffff;
+  --display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --line: #30302d;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --ref: #8a8983;
+    --tint: #16283f; --on-accent: #ffffff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --surface: #1a1a19; --ink: #f0efec; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --line: #30302d;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --ref: #8a8983;
+  --tint: #16283f; --on-accent: #ffffff; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.pagina { max-width: 1080px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 24px; }
+h1 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--body); font-weight: 600; font-size: 14px; margin: 0; }
+p { margin: 0; }
+.bajada { color: var(--ink2); max-width: 65ch; margin-top: 8px; }
+.cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cifra { border-top: 2px solid var(--axis); padding-top: 10px; }
+.cifra.principal { border-top-color: var(--s1); }
+.cifra b { display: block; font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cifra span { color: var(--ink2); font-size: 13px; }
+.nota { color: var(--muted); font-size: 12.5px; }
+nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+nav a { padding: 10px 14px; color: var(--ink2); text-decoration: none; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--s1); }
+nav a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+[hidden] { display: none !important; }
+section.vista { display: flex; flex-direction: column; gap: 20px; }
+.controles { display: flex; flex-wrap: wrap; gap: 16px 28px; }
+.control { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.control > span { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.opciones { display: flex; flex-wrap: wrap; gap: 4px; }
+.opciones button { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.opciones button[aria-pressed="true"] { background: var(--s1); border-color: var(--s1); color: var(--on-accent); }
+.opciones button:disabled { color: var(--muted); cursor: not-allowed; opacity: .6; }
+.dos { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 16px; }
+.tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px; }
+.panel p.sub { color: var(--ink2); font-size: 13px; }
+.grafico { position: relative; }
+.grafico svg { display: block; width: 100%; height: auto; }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12.5px; line-height: 1.4;
+  padding: 6px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -100%); font-variant-numeric: tabular-nums; z-index: 2; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); }
+.leyenda span { display: inline-flex; align-items: center; gap: 7px; }
+.leyenda i { width: 18px; height: 0; border-top: 2.5px solid; display: inline-block; }
+.leyenda i.punteada { border-top-style: dashed; border-top-width: 2px; }
+.reproductor { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.reproductor button { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 6px; border: 1px solid var(--s1);
+  background: var(--s1); color: var(--on-accent); cursor: pointer; min-width: 116px; }
+.reproductor input[type="range"] { flex: 1 1 220px; min-width: 0; accent-color: var(--s1); }
+.reproductor output { font-family: var(--display); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; min-width: 96px; }
+.lectura { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.lectura div { border-top: 1px solid var(--line); padding-top: 8px; min-width: 0; }
+.lectura b { display: block; font-family: var(--display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.lectura span { font-size: 12.5px; color: var(--ink2); }
+.mensaje { font-size: 16px; max-width: 70ch; }
+.explica { display: flex; flex-direction: column; gap: 14px; border-top: 1px solid var(--line); padding-top: 22px; margin-top: 8px; }
+.explica > p { max-width: 70ch; color: var(--ink2); }
+.explica .par { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.explica .panel p { font-size: 14px; color: var(--ink2); }
+.explica .panel.sin { border-top: 2px solid var(--s2); }
+.explica .panel.con { border-top: 2px solid var(--s3); }
+.explica pre { margin: 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace; overflow-x: auto; }
+.explica ul { margin: 0; padding-left: 20px; color: var(--ink2); max-width: 70ch; }
+.explica li + li { margin-top: 4px; }
+.tabla { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink2); font-size: 12.5px; }
+td.n, th.n { text-align: right; padding-right: 16px; }
+ul.claves { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; max-width: 72ch; }
+footer { color: var(--muted); font-size: 12.5px; border-top: 1px solid var(--line); padding-top: 14px; max-width: 80ch; }
+footer a { color: var(--ink2); }
+svg text { font-family: var(--body); }
+@media (max-width: 820px) {
+  .dos, .tres, .explica .par { grid-template-columns: minmax(0, 1fr); }
+  .lectura { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  h1 { font-size: 25px; }
+  .cifra b { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="pagina">
+  <header>
+    <h1>Ciber-Inmunología Swarm</h1>
+    <p class="bajada">Un detector de intrusiones que cinco organizaciones entrenan juntas sin compartir su tráfico: solo intercambian los pesos del modelo. Estos son los resultados reales de las corridas con CIC-IDS2017.</p>
+  </header>
+
+  <div class="cifras" aria-label="Resultado principal">
+    <div class="cifra principal"><b id="c-fed">–</b><span>Federado: colaboran sin compartir datos</span></div>
+    <div class="cifra"><b id="c-cen">–</b><span>Centralizado: todos los datos en un solo lugar</span></div>
+    <div class="cifra"><b id="c-ais">–</b><span>Aislado: cada organización por su cuenta</span></div>
+  </div>
+  <p class="nota">F1 macro sobre 7 clases (tráfico benigno y seis familias de ataque), modelo MLP, 20 rondas, una corrida. Va de 0 a 1; más alto es mejor.</p>
+
+  <nav aria-label="Experimentos">
+    <a href="#ataque-nuevo">Ataque nuevo</a>
+    <a href="#nodos-distintos">Nodos distintos</a>
+    <a href="#nodos-maliciosos">Nodos maliciosos</a>
+  </nav>
+
+  <!-- ===================== ATAQUE NUEVO (E3) ===================== -->
+  <section class="vista" id="vista-ataque-nuevo">
+    <div>
+      <h2>Si una sola organización ve un ataque nuevo, ¿quedan protegidas las demás?</h2>
+      <p class="bajada">Se quitó una familia de ataque del entrenamiento de cuatro de los cinco nodos. La curva muestra qué parte de ese ataque reconoce el modelo que comparten todos.</p>
+    </div>
+    <div class="controles">
+      <div class="control"><span id="l-fam">Ataque nuevo</span><div class="opciones" id="op-fam" role="group" aria-labelledby="l-fam"></div></div>
+      <div class="control"><span id="l-var">Cómo se combinan los pesos</span><div class="opciones" id="op-var" role="group" aria-labelledby="l-var"></div></div>
+      <div class="control"><span id="l-mod">Modelo</span><div class="opciones" id="op-mod" role="group" aria-labelledby="l-mod"></div></div>
+    </div>
+    <p class="nota" id="aviso-var" hidden>El promedio simple solo se corrió con el MLP.</p>
+
+    <div class="dos">
+      <div class="panel">
+        <h3>La federación</h3>
+        <p class="sub">En cada ronda el servidor reparte el modelo, cada nodo lo entrena con sus datos y devuelve los pesos. El anillo indica cuánto del ataque reconoce el modelo que recibe cada nodo.</p>
+        <div class="grafico"><svg id="red" viewBox="0 0 360 330" role="img" aria-label="Cinco nodos conectados a un servidor central"></svg></div>
+      </div>
+      <div class="panel">
+        <h3 id="t-curva">Flujos del ataque nuevo detectados por el modelo global</h3>
+        <div class="grafico" id="g-e3"></div>
+        <div class="leyenda" id="ley-e3"></div>
+      </div>
+    </div>
+
+    <div class="reproductor">
+      <button type="button" id="btn-play">Reproducir</button>
+      <input type="range" id="ronda" min="1" max="20" step="1" value="20" aria-label="Ronda">
+      <output id="ronda-txt" for="ronda">Ronda 20</output>
+    </div>
+    <p class="mensaje" id="mensaje"></p>
+    <div class="lectura" id="lectura"></div>
+
+    <div class="explica" id="mascara">
+      <h2>Qué es la máscara de clases</h2>
+      <p>Es una regla de entrenamiento: cada nodo solo opina sobre las familias de ataque que tiene en sus propios datos. Sobre las que nunca vio, no dice nada.</p>
+      <div class="par">
+        <div class="panel sin">
+          <h3>Promedio simple: el ataque nuevo se pierde</h3>
+          <p>El modelo da una puntuación a cada una de las 7 familias y elige la más alta. Al entrenar, cada flujo sube la puntuación de la familia correcta y baja la de todas las demás.</p>
+          <p>Un nodo que nunca vio el ataque no tiene ejemplos que suban esa puntuación, pero todos sus flujos la bajan: aprende que ese ataque nunca es la respuesta.</p>
+          <p>Al promediar, cuatro nodos que dicen «nunca es ese ataque» tapan al único que aprendió a reconocerlo.</p>
+        </div>
+        <div class="panel con">
+          <h3>Con máscara: el que no sabe se abstiene</h3>
+          <p>Antes de calcular el error, cada nodo saca de la cuenta las familias que no tiene en sus datos.</p>
+          <p>Los cuatro nodos que no vieron el ataque dejan de empujar esa puntuación hacia abajo. Para esa familia solo aporta el nodo que sí la vio, y lo que aprendió sobrevive al promedio.</p>
+          <p>Es como cinco médicos que votan un diagnóstico: quien no conoce la enfermedad se abstiene y vale la opinión del que sí la conoce.</p>
+        </div>
+      </div>
+      <p>En el código es una sola línea, en el entrenamiento local de cada nodo:</p>
+      <pre>salida = salida.masked_fill(ausentes, -1e9)   # las familias ausentes no entran en el error</pre>
+      <h3>Qué no cambia</h3>
+      <ul>
+        <li>El servidor y el promedio son los mismos (FedAvg); solo cambia cómo entrena cada nodo.</li>
+        <li>No se comparten datos: cada nodo mira únicamente sus propias etiquetas para saber qué familias conoce.</li>
+        <li>El modelo es el mismo, con las mismas 7 salidas.</li>
+      </ul>
+      <h3>Límites</h3>
+      <ul>
+        <li>La idea se conoce en la literatura como <i>restricted softmax</i> (FedRS); no es un aporte original del proyecto.</li>
+        <li>Solo se probó en este experimento, con una semilla y con los datos repartidos de forma pareja entre los nodos.</li>
+        <li>No funciona igual para todas las familias: con el MLP, Bot llegó a 76,9%; con el Transformer, PortScan y Bot no se propagaron (9,2% y 15,9%).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== NODOS DISTINTOS (E2) ===================== -->
+  <section class="vista" id="vista-nodos-distintos" hidden>
+    <div>
+      <h2>¿Qué pasa cuando cada organización ve tráfico distinto?</h2>
+      <p class="bajada">Se repartieron los datos de forma cada vez más desigual entre los nodos y se compararon tres formas de federar. Modelo MLP.</p>
+    </div>
+    <div class="controles">
+      <div class="control"><span id="l-med">Medido sobre</span><div class="opciones" id="op-med" role="group" aria-labelledby="l-med"></div></div>
+    </div>
+    <div class="tres" id="g-e2"></div>
+    <div class="leyenda" id="ley-e2"></div>
+    <ul class="claves">
+      <li><b>El promedio simple (FedAvg) casi no pierde</b> aunque los nodos sean muy distintos: queda entre 0,959 y 0,963 frente a tráfico general.</li>
+      <li><b>FedProx no lo mejora:</b> queda cerca de un punto por debajo en los tres casos.</li>
+      <li><b>La cabeza local se especializa:</b> con nodos muy distintos es la mejor para el tráfico propio (0,957), pero frente a tráfico general marca como ataque el 40% de lo benigno.</li>
+    </ul>
+    <div class="tabla" id="tabla-e2"></div>
+  </section>
+
+  <!-- ===================== NODOS MALICIOSOS (E4) ===================== -->
+  <section class="vista" id="vista-nodos-maliciosos" hidden>
+    <div>
+      <h2>¿Cuánto daño hace un nodo que entrena mal a propósito?</h2>
+      <p class="bajada">De diez nodos, entre uno y tres entrenan con las etiquetas invertidas. Se comparan tres formas de combinar los pesos en el servidor. Modelo MLP.</p>
+    </div>
+    <div class="tres" id="g-e4"></div>
+    <div class="leyenda" id="ley-e4"></div>
+    <ul class="claves">
+      <li><b>El promedio simple se degrada a medida que suman atacantes:</b> con tres pierde 5 puntos y casi triplica los falsos positivos.</li>
+      <li><b>La mediana lo contiene:</b> pierde 1 punto con tres atacantes y es la más estable.</li>
+      <li><b>Krum termina bien pero oscila:</b> en algunas rondas cae porque elige el modelo de un solo nodo.</li>
+    </ul>
+    <div class="tabla" id="tabla-e4"></div>
+  </section>
+
+  <footer>
+    Datos: CIC-IDS2017 (Canadian Institute for Cybersecurity), 10% del tráfico benigno y todos los ataques, unos 635.000 flujos. Una corrida por configuración, con semilla fija; diferencias de milésimas no son significativas. Código: <a href="https://github.com/xeviercr4/ciber-inmunologia">github.com/xeviercr4/ciber-inmunologia</a>.
+  </footer>
+</div>
+
+<script>
+const D = {"e1":{"mlp":{"centralizado":{"f1":0.962,"fpr":0.0033,"bot":0.648},"aislado":{"f1":0.903,"fpr":0.0224,"bot":0.561},"federado":{"f1":0.961,"fpr":0.0035,"bot":0.65}},"transformer":{"centralizado":{"f1":0.957,"fpr":0.0037,"bot":0.607},"aislado":{"f1":0.881,"fpr":0.0252,"bot":0.53},"federado":{"f1":0.962,"fpr":0.0035,"bot":0.658}}},"e3":{"mlp":{"DoS":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.109,0.3145,0.1956,0.3673,0.2923,0.2152,0.2591,0.2428,0.2353,0.1969,0.2226,0.2714,0.4332,0.4785,0.4194,0.3726,0.3713,0.2406,0.3368,0.3382],"f1":[0.6449,0.6702,0.6691,0.6439,0.6483,0.6555,0.7177,0.6573,0.7426,0.7417,0.7359,0.7431,0.7315,0.7127,0.7302,0.7029,0.7227,0.7297,0.7235,0.7044],"fpr":[0.0012,0.0015,0.0016,0.0014,0.0017,0.0014,0.0014,0.0016,0.0017,0.0015,0.0018,0.0016,0.0016,0.0023,0.0018,0.0019,0.002,0.0018,0.0021,0.0024],"aislado":0.4344,"autoencoder":0.8418},"con":{"recall":[0.0034,0.6753,0.7735,0.8116,0.9299,0.967,0.9759,0.9921,0.9965,0.9966,0.9989,0.999,0.9985,0.9996,0.9991,0.9998,0.9995,0.9998,0.9997,0.9997],"detectado":[0.0974,0.7132,0.7779,0.8145,0.9303,0.9682,0.976,0.9929,0.9965,0.9967,0.999,0.9991,0.9986,0.9997,0.9993,0.9999,0.9996,0.9999,0.9998,0.9998],"f1":[0.647,0.9041,0.9184,0.935,0.9515,0.9571,0.9582,0.9543,0.961,0.9611,0.9601,0.9608,0.9617,0.961,0.9621,0.9619,0.9617,0.9616,0.9614,0.962],"fpr":[0.0011,0.0015,0.0017,0.0015,0.0016,0.0022,0.003,0.003,0.0032,0.0031,0.0045,0.0046,0.0038,0.0042,0.0035,0.0053,0.0047,0.0054,0.0057,0.0053],"aislado":0.4344,"autoencoder":0.8418}},"DDoS":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.5928,0.6409,0.6508,0.6284,0.6135,0.5707,0.5729,0.6201,0.644,0.63,0.5742,0.6539,0.6465,0.4953,0.3916,0.5143,0.3458,0.2803,0.2759,0.2581],"f1":[0.7608,0.7644,0.7602,0.7663,0.7652,0.7674,0.7654,0.7605,0.7609,0.7623,0.7656,0.7602,0.7615,0.7656,0.7715,0.7669,0.7766,0.777,0.7789,0.7803],"fpr":[0.0033,0.0049,0.0054,0.0036,0.0041,0.0039,0.0043,0.004,0.004,0.0034,0.004,0.0038,0.0036,0.0039,0.0038,0.0036,0.0035,0.0036,0.0038,0.0039],"aislado":0.6537,"autoencoder":0.8532},"con":{"recall":[0.0,0.0,0.0648,0.4146,0.7252,0.8757,0.9665,0.9992,0.9991,0.9995,0.9994,0.9995,0.9996,0.9994,0.9995,0.9996,0.9997,0.9997,0.9997,0.9997],"detectado":[0.5965,0.6322,0.6488,0.6591,0.9108,0.9939,0.9995,0.9996,0.9995,0.9996,0.9996,0.9996,0.9996,0.9996,0.9997,0.9997,0.9997,0.9998,0.9997,0.9998],"f1":[0.761,0.7657,0.7804,0.8732,0.9266,0.9457,0.9571,0.9609,0.9613,0.9622,0.9625,0.9618,0.962,0.9616,0.9619,0.9617,0.9625,0.962,0.9625,0.9643],"fpr":[0.0048,0.0049,0.0051,0.0033,0.0035,0.0039,0.0041,0.0042,0.0042,0.0032,0.0037,0.0038,0.0037,0.0037,0.0037,0.0039,0.0045,0.0041,0.0038,0.0044],"aislado":0.6537,"autoencoder":0.8532}},"PortScan":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.0058,0.0081,0.0075,0.0093,0.0101,0.009,0.009,0.0106,0.0092,0.0094,0.009,0.0119,0.0103,0.0115,0.0123,0.009,0.0112,0.0074,0.0117,0.0066],"f1":[0.7671,0.7785,0.7845,0.7863,0.7844,0.7911,0.7903,0.7899,0.7928,0.7888,0.7929,0.7923,0.7932,0.7919,0.7922,0.7925,0.7932,0.7927,0.7942,0.7974],"fpr":[0.0053,0.0054,0.0056,0.0038,0.0043,0.0037,0.0035,0.0036,0.0034,0.0031,0.0028,0.0034,0.0029,0.0035,0.0035,0.0033,0.0031,0.0032,0.0034,0.0032],"aislado":0.0058,"autoencoder":0.0251},"con":{"recall":[0.0,0.0,0.0031,0.0074,0.0858,0.2186,0.4162,0.8746,0.9658,0.9891,0.996,0.9988,0.9988,0.9988,0.9988,0.9989,0.9991,0.9991,0.9991,0.9991],"detectado":[0.0058,0.0081,0.0089,0.0145,0.0937,0.2205,0.418,0.8762,0.9671,0.9902,0.9971,0.9997,0.9997,0.9997,0.9997,0.9997,0.9999,0.9999,0.9999,0.9999],"f1":[0.7663,0.7855,0.7891,0.7938,0.8123,0.8494,0.8865,0.9475,0.9582,0.961,0.9617,0.9612,0.9617,0.9615,0.961,0.9615,0.9616,0.9612,0.9608,0.9617],"fpr":[0.006,0.0052,0.0051,0.0036,0.004,0.0035,0.0036,0.004,0.0042,0.0032,0.0035,0.0039,0.0037,0.0039,0.0037,0.004,0.0041,0.0039,0.0043,0.0048],"aislado":0.0058,"autoencoder":0.0251}},"BruteForce":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.2404,0.3055,0.271,0.2852,0.294,0.2426,0.323,0.2426,0.2404,0.2404,0.2404,0.2202,0.2257,0.2202,0.2186,0.2186,0.2213,0.2186,0.2186,0.2186],"f1":[0.8011,0.7893,0.7972,0.7985,0.7969,0.8096,0.7909,0.8095,0.8097,0.81,0.81,0.8163,0.8141,0.8165,0.8173,0.8164,0.8169,0.8159,0.817,0.8194],"fpr":[0.0061,0.0054,0.0046,0.0042,0.0036,0.0039,0.0039,0.0036,0.0032,0.0035,0.0032,0.0034,0.0036,0.0031,0.0033,0.0036,0.0036,0.0033,0.0037,0.0036],"aislado":0.4984,"autoencoder":0.4366},"con":{"recall":[0.0,0.0,0.0005,0.0087,0.4235,0.4459,0.6437,0.7623,0.9634,0.9716,0.9787,0.9847,0.9923,0.9945,0.9934,0.9956,0.9962,0.9967,0.9956,0.9973],"detectado":[0.2383,0.3104,0.2743,0.2732,0.706,0.6689,0.8847,0.9836,0.9787,0.9852,0.9934,0.9984,1.0,0.9984,0.9995,0.9989,0.9989,0.9995,0.9984,1.0],"f1":[0.8011,0.7887,0.7973,0.8061,0.8858,0.9047,0.9232,0.9412,0.959,0.9601,0.9608,0.9604,0.9603,0.9614,0.9622,0.9609,0.9617,0.9621,0.9609,0.9621],"fpr":[0.0057,0.0051,0.0039,0.004,0.0038,0.004,0.0038,0.0037,0.0036,0.0035,0.0032,0.0038,0.0038,0.0035,0.0036,0.0039,0.0037,0.0037,0.0038,0.0039],"aislado":0.4984,"autoencoder":0.4366}},"Web":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.007,0.0536,0.0583,0.0443,0.0536,0.014,0.0466,0.0583,0.0117,0.0536,0.0583,0.8741,0.9138,0.1305,0.9184,0.3007,0.4639,0.9324,0.7226,0.8834],"f1":[0.8098,0.8153,0.8175,0.8197,0.8199,0.8208,0.8203,0.8202,0.8212,0.8206,0.82,0.8212,0.8201,0.8204,0.8197,0.8209,0.8202,0.8205,0.8195,0.8197],"fpr":[0.0071,0.0047,0.0048,0.0041,0.0037,0.0037,0.0037,0.0035,0.0031,0.0032,0.0036,0.0035,0.0037,0.0032,0.0036,0.0031,0.0037,0.0035,0.0036,0.0033],"aislado":0.0093,"autoencoder":0.049},"con":{"recall":[0.0,0.0,0.0,0.0,0.0,0.8485,0.8904,0.9091,0.9044,0.9254,0.8974,0.9231,0.9347,0.9371,0.9371,0.9347,0.9697,0.9347,0.9394,0.9277],"detectado":[0.007,0.0396,0.0583,0.049,0.007,0.9044,0.9161,0.9347,0.9161,0.9301,0.9394,0.9371,0.9487,0.9487,0.951,0.9487,0.9837,0.9487,0.9977,0.9394],"f1":[0.8035,0.8156,0.8156,0.8201,0.8208,0.9511,0.9542,0.9553,0.9557,0.9558,0.9535,0.9559,0.9338,0.9455,0.9414,0.9556,0.9575,0.9545,0.954,0.9557],"fpr":[0.0069,0.0047,0.0053,0.0038,0.0035,0.0037,0.0039,0.0041,0.0034,0.0033,0.0039,0.0037,0.0079,0.0052,0.0062,0.0039,0.0041,0.0039,0.0047,0.0038],"aislado":0.0093,"autoencoder":0.049}},"Bot":{"sin":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"detectado":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"f1":[0.8345,0.8441,0.8507,0.8475,0.8498,0.8497,0.8508,0.8507,0.8521,0.8501,0.8514,0.8518,0.8521,0.8515,0.8509,0.8517,0.852,0.852,0.8522,0.849],"fpr":[0.0094,0.004,0.0043,0.0047,0.0044,0.0042,0.0037,0.0037,0.0039,0.0034,0.0035,0.0037,0.003,0.0032,0.0031,0.0033,0.0033,0.0031,0.0033,0.0038],"aislado":0.0,"autoencoder":0.2879},"con":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5733,0.5784,0.5913,0.5964,0.6478,0.6093,0.7506,0.6889,0.671,0.7738,0.9563,0.7686],"detectado":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5733,0.5784,0.5913,0.5964,0.6478,0.6093,0.7506,0.6889,0.671,0.7738,0.9563,0.7686],"f1":[0.8349,0.8435,0.8509,0.8503,0.851,0.8498,0.8521,0.8513,0.9537,0.9535,0.9524,0.9547,0.9431,0.9471,0.9352,0.9441,0.9402,0.9088,0.8964,0.9138],"fpr":[0.009,0.0043,0.0041,0.0045,0.0042,0.0041,0.0035,0.0034,0.0042,0.0034,0.0044,0.0039,0.0068,0.0053,0.0108,0.0078,0.0079,0.0218,0.0383,0.0192],"aislado":0.0,"autoencoder":0.2879}}},"transformer":{"DoS":{"con":{"recall":[0.0,0.0035,0.0709,0.7854,0.884,0.9542,0.9687,0.9571,0.9847,0.9873,0.9877,0.9859,0.9865,0.9872,0.9717,0.988,0.9846,0.9715,0.9874,0.9877],"detectado":[0.0076,0.037,0.0747,0.7875,0.8879,0.9594,0.9698,0.9584,0.9855,0.9877,0.9882,0.9869,0.9869,0.9875,0.9719,0.9884,0.9847,0.9722,0.9876,0.9878],"f1":[0.6454,0.7417,0.7747,0.9283,0.9636,0.9708,0.974,0.9738,0.9736,0.977,0.9775,0.9781,0.9773,0.9787,0.9758,0.9788,0.9721,0.9769,0.9787,0.9792],"fpr":[0.003,0.0025,0.0035,0.0019,0.0031,0.0036,0.0048,0.0053,0.0069,0.007,0.0107,0.0089,0.0091,0.0087,0.0064,0.0099,0.0073,0.0074,0.0092,0.0085],"aislado":0.0297,"autoencoder":0.8418}},"DDoS":{"con":{"recall":[0.0,0.0,0.1151,0.2217,0.434,0.6585,0.6741,0.5146,0.5573,0.6997,0.5861,0.7283,0.8006,0.6716,0.9986,0.9985,0.9987,0.9989,0.9947,0.9992],"detectado":[0.9147,0.8606,0.6516,0.5991,0.852,0.9777,0.9717,0.8412,0.9977,0.984,0.8603,0.9988,0.9985,0.9991,0.999,0.9988,0.999,0.9992,0.9997,0.9995],"f1":[0.7315,0.7653,0.793,0.8291,0.8638,0.8998,0.9034,0.8745,0.8833,0.9089,0.8999,0.929,0.9496,0.9279,0.9817,0.9826,0.9827,0.9813,0.9812,0.9824],"fpr":[0.0131,0.0077,0.0054,0.0046,0.0057,0.0056,0.0042,0.0041,0.004,0.0033,0.0041,0.0058,0.0047,0.0047,0.0048,0.0044,0.0048,0.0049,0.0048,0.0047],"aislado":0.6338,"autoencoder":0.8532}},"PortScan":{"con":{"recall":[0.0,0.0,0.0,0.0017,0.0099,0.0132,0.0122,0.0137,0.0276,0.0267,0.515,0.149,0.0577,0.2549,0.8901,0.3158,0.4309,0.0687,0.8921,0.092],"detectado":[0.0219,0.0219,0.0256,0.0083,0.0233,0.0245,0.0237,0.0175,0.0316,0.0297,0.5171,0.1517,0.061,0.2586,0.894,0.3182,0.4337,0.0707,0.8944,0.0947],"f1":[0.6698,0.7002,0.7872,0.7909,0.7918,0.7965,0.7965,0.7975,0.8013,0.8014,0.9027,0.8338,0.8111,0.8577,0.9495,0.8693,0.8894,0.8132,0.95,0.8193],"fpr":[0.0109,0.0047,0.0048,0.0042,0.0038,0.0038,0.0031,0.0031,0.0031,0.0026,0.003,0.003,0.0028,0.0031,0.0033,0.0027,0.003,0.0026,0.0033,0.0025],"aislado":0.0036,"autoencoder":0.0251}},"BruteForce":{"con":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0005,0.0,0.0005,0.0005,0.0044,0.2142,0.2153,0.6514,0.653,0.2224,0.7317,0.3005,0.9574,0.3164,0.9913],"detectado":[0.2186,0.2202,0.2208,0.2202,0.2197,0.2404,0.2404,0.2404,0.241,0.2388,0.2377,0.241,0.6694,0.677,0.2437,0.7459,0.3169,0.9634,0.3213,0.994],"f1":[0.6968,0.7973,0.8012,0.8206,0.8238,0.815,0.8218,0.8127,0.7967,0.8271,0.8806,0.8801,0.9375,0.9456,0.887,0.9575,0.8917,0.9692,0.9022,0.9837],"fpr":[0.0063,0.0061,0.0045,0.0059,0.0047,0.0074,0.0058,0.0037,0.0054,0.0043,0.0041,0.0043,0.0063,0.0043,0.0042,0.0041,0.0056,0.0057,0.0053,0.0041],"aislado":0.2191,"autoencoder":0.4366}},"Web":{"con":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.8438,0.8508,0.8438,0.8438,0.8951,0.8462,0.8904,0.8881,0.9021,0.9184,0.9068,0.9068],"detectado":[0.0117,0.0093,0.0117,0.0117,0.0117,0.0117,0.014,0.0117,0.8555,0.8625,0.8555,0.8555,0.9068,0.8578,0.9021,0.8998,0.9138,0.9301,0.9184,0.9184],"f1":[0.7652,0.8148,0.8076,0.8256,0.8129,0.8377,0.8342,0.8165,0.9475,0.9585,0.9734,0.9714,0.9779,0.9596,0.9768,0.9637,0.9771,0.9789,0.9769,0.9653],"fpr":[0.009,0.0051,0.0081,0.0096,0.0047,0.0055,0.0063,0.0062,0.0055,0.0035,0.0044,0.0045,0.0044,0.0035,0.004,0.0037,0.0044,0.0046,0.0042,0.0031],"aislado":0.0583,"autoencoder":0.049}},"Bot":{"con":{"recall":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5527,0.2699,0.2751,0.2751,0.0,0.0,0.2725,0.1594],"detectado":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.5527,0.2699,0.2751,0.2751,0.0,0.0,0.2725,0.1594],"f1":[0.8404,0.8425,0.8428,0.8464,0.8429,0.8514,0.8477,0.8507,0.8514,0.8514,0.8517,0.8516,0.951,0.9128,0.9141,0.912,0.8528,0.8528,0.9116,0.8917],"fpr":[0.0072,0.0036,0.0042,0.0044,0.0043,0.004,0.0041,0.004,0.0035,0.0037,0.0036,0.0041,0.0041,0.0036,0.0033,0.0041,0.0031,0.0029,0.0038,0.0035],"aislado":0.0,"autoencoder":0.2879}}}},"e2":{"0.1":{"fedavg":{"global":[0.3705,0.6563,0.9176,0.9045,0.9342,0.9281,0.946,0.949,0.9508,0.9475,0.9325,0.9589,0.9562,0.9516,0.9591,0.955,0.9563,0.9559,0.9584,0.9588],"local":[0.3458,0.6381,0.8346,0.8387,0.8431,0.8289,0.8436,0.8374,0.8608,0.8436,0.8164,0.8671,0.8642,0.8869,0.8789,0.8902,0.859,0.8666,0.8826,0.874],"fpr":0.0025},"fedprox":{"global":[0.4806,0.5072,0.5087,0.6536,0.7815,0.6906,0.9082,0.9187,0.925,0.8866,0.9283,0.9407,0.9391,0.8836,0.9367,0.9357,0.9437,0.9377,0.9398,0.9499],"local":[0.4832,0.5144,0.5173,0.6498,0.7417,0.6946,0.8262,0.8485,0.8218,0.8196,0.8486,0.8809,0.863,0.8167,0.8545,0.8594,0.8622,0.8387,0.8616,0.8758],"fpr":0.0022},"local":{"global":[0.3519,0.4791,0.5383,0.5514,0.55,0.5484,0.5547,0.5463,0.5521,0.582,0.5653,0.5801,0.5659,0.6022,0.6073,0.6136,0.5921,0.6097,0.6079,0.6119],"local":[0.5169,0.736,0.8469,0.8374,0.8322,0.7993,0.8015,0.8188,0.8233,0.8997,0.8278,0.8875,0.8276,0.8813,0.9079,0.9114,0.8788,0.9319,0.9448,0.9567],"fpr":0.4011}},"0.5":{"fedavg":{"global":[0.7068,0.8411,0.9041,0.9517,0.94,0.9577,0.9585,0.9607,0.9617,0.9609,0.9619,0.9581,0.9613,0.9604,0.962,0.9603,0.9604,0.9625,0.9619,0.9613],"local":[0.7066,0.8548,0.8957,0.9234,0.9207,0.9334,0.9265,0.9348,0.9387,0.9327,0.9391,0.9271,0.9355,0.9314,0.9383,0.9304,0.9313,0.9383,0.9382,0.9351],"fpr":0.0035},"fedprox":{"global":[0.7018,0.8386,0.837,0.8762,0.8692,0.9287,0.9309,0.944,0.9445,0.9441,0.9447,0.9359,0.9433,0.9443,0.9456,0.9468,0.9469,0.9463,0.9493,0.947],"local":[0.693,0.8466,0.841,0.874,0.8719,0.8932,0.8955,0.9194,0.9196,0.9173,0.9207,0.8987,0.9179,0.9203,0.9215,0.9223,0.9216,0.9195,0.9236,0.922],"fpr":0.0041},"local":{"global":[0.7135,0.8581,0.8678,0.8838,0.8962,0.8898,0.8795,0.8894,0.904,0.9028,0.8997,0.9043,0.8975,0.9013,0.9087,0.9052,0.9007,0.8993,0.9026,0.9044],"local":[0.7191,0.8962,0.9063,0.9304,0.9314,0.9317,0.9269,0.9348,0.9342,0.9343,0.9405,0.9381,0.9368,0.9383,0.9407,0.9423,0.9418,0.9429,0.9435,0.9438],"fpr":0.0081}},"1.0":{"fedavg":{"global":[0.7735,0.9462,0.9522,0.9606,0.9611,0.961,0.9611,0.9615,0.9614,0.9601,0.9612,0.9608,0.96,0.9627,0.9618,0.9621,0.9617,0.9617,0.9625,0.9627],"local":[0.7643,0.941,0.9495,0.9573,0.9587,0.9574,0.9577,0.9587,0.9582,0.9568,0.9578,0.957,0.9561,0.9595,0.9582,0.9594,0.9588,0.9586,0.9602,0.9602],"fpr":0.0046},"fedprox":{"global":[0.7035,0.8388,0.9032,0.9295,0.9455,0.9453,0.9455,0.9447,0.9464,0.9496,0.9479,0.948,0.9487,0.95,0.951,0.9477,0.954,0.9586,0.9531,0.9561],"local":[0.6924,0.8318,0.8946,0.9194,0.9428,0.9424,0.9423,0.9415,0.9442,0.9469,0.9457,0.9451,0.9435,0.9471,0.9483,0.9409,0.9521,0.9563,0.9518,0.9532],"fpr":0.005},"local":{"global":[0.7908,0.9411,0.9491,0.9513,0.9495,0.9496,0.9476,0.9456,0.9457,0.9479,0.9523,0.9511,0.9499,0.9489,0.9514,0.9528,0.9564,0.9529,0.9502,0.954],"local":[0.7813,0.9456,0.9522,0.9569,0.9601,0.9572,0.9604,0.9596,0.9582,0.9583,0.962,0.9619,0.9617,0.9625,0.9627,0.9632,0.9632,0.963,0.9626,0.9644],"fpr":0.007}}},"e4":{"1":{"FedAvg sin atacantes":{"f1":[0.8893,0.9453,0.9471,0.9541,0.9563,0.9605,0.9566,0.9612,0.9617,0.9593,0.962,0.9606,0.9617,0.9622,0.9615,0.9615,0.9616,0.9609,0.961,0.9604],"fpr":0.0037},"fedavg":{"f1":[0.8702,0.9249,0.9472,0.9529,0.9554,0.9583,0.9546,0.9597,0.9604,0.9561,0.9603,0.9574,0.9602,0.9602,0.9588,0.959,0.9583,0.959,0.9576,0.9573],"fpr":0.0038},"krum":{"f1":[0.8697,0.9403,0.9474,0.9447,0.9486,0.9504,0.9516,0.9408,0.9557,0.9528,0.9566,0.9505,0.9604,0.9612,0.9547,0.9609,0.953,0.9603,0.9484,0.9568],"fpr":0.0035},"mediana":{"f1":[0.8943,0.9438,0.948,0.9536,0.954,0.9601,0.9552,0.9592,0.9614,0.9589,0.9615,0.9596,0.9607,0.9611,0.9596,0.9597,0.9599,0.9596,0.9591,0.9599],"fpr":0.0037}},"2":{"FedAvg sin atacantes":{"f1":[0.8893,0.9453,0.9471,0.9541,0.9563,0.9605,0.9566,0.9612,0.9617,0.9593,0.962,0.9606,0.9617,0.9622,0.9615,0.9615,0.9616,0.9609,0.961,0.9604],"fpr":0.0037},"fedavg":{"f1":[0.8672,0.9178,0.9477,0.9464,0.9496,0.9501,0.943,0.9498,0.9522,0.9451,0.95,0.9467,0.9482,0.9539,0.95,0.9533,0.9502,0.9508,0.9496,0.9461],"fpr":0.0048},"krum":{"f1":[0.8697,0.9451,0.9467,0.95,0.9448,0.954,0.951,0.9419,0.9552,0.9535,0.9227,0.9534,0.9563,0.9596,0.9588,0.96,0.9596,0.9618,0.9285,0.9576],"fpr":0.0048},"mediana":{"f1":[0.8743,0.9261,0.9475,0.9523,0.9538,0.9595,0.953,0.9581,0.9603,0.9571,0.9599,0.9578,0.9591,0.9595,0.9572,0.9582,0.9588,0.9579,0.9577,0.958],"fpr":0.0037}},"3":{"FedAvg sin atacantes":{"f1":[0.8893,0.9453,0.9471,0.9541,0.9563,0.9605,0.9566,0.9612,0.9617,0.9593,0.962,0.9606,0.9617,0.9622,0.9615,0.9615,0.9616,0.9609,0.961,0.9604],"fpr":0.0037},"fedavg":{"f1":[0.8645,0.9101,0.9193,0.9386,0.9339,0.94,0.9281,0.9234,0.9302,0.9276,0.9382,0.9276,0.9251,0.9269,0.9376,0.9277,0.925,0.9248,0.9289,0.9075],"fpr":0.0114},"krum":{"f1":[0.8697,0.9193,0.947,0.9503,0.947,0.958,0.9519,0.9433,0.9396,0.9506,0.9312,0.9417,0.961,0.9612,0.9536,0.9601,0.9563,0.9159,0.9593,0.9494],"fpr":0.0036},"mediana":{"f1":[0.8643,0.9205,0.9337,0.9471,0.95,0.9519,0.9487,0.9504,0.9562,0.9425,0.9569,0.9454,0.9536,0.9536,0.9531,0.9501,0.9523,0.9524,0.9531,0.9481],"fpr":0.0041}}}};
+const SVGNS = "http://www.w3.org/2000/svg";
+const $ = (id) => document.getElementById(id);
+const pct = (v, d = 0) => (v * 100).toFixed(d).replace(".", ",") + "%";
+const dec = (v, d = 3) => v.toFixed(d).replace(".", ",");
+const el = (nombre, attrs = {}, texto) => {
+  const e = document.createElementNS(SVGNS, nombre);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (texto !== undefined) e.textContent = texto;
+  return e;
+};
+const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- Gráfico de líneas genérico ----------
+   cfg: { series:[{nombre,color,valores,punteada}], refs:[{nombre,valor,punteada}], dominio:[min,max],
+          marcas:[..], formato:fn, cursor:n|null, alto, ejeY } */
+function graficoLineas(cont, cfg) {
+  cont.innerHTML = "";
+  const W = cfg.ancho || 520, H = cfg.alto || 300, m = { i: 46, d: 14, a: 12, b: 34 };
+  const n = cfg.series[0].valores.length;
+  const [y0, y1] = cfg.dominio;
+  const X = (r) => m.i + (r - 1) / (n - 1) * (W - m.i - m.d);
+  const Y = (v) => H - m.b - (Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0) * (H - m.a - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": cfg.titulo || "Gráfico" });
+  for (const t of cfg.marcas) {
+    svg.append(el("line", { x1: m.i, x2: W - m.d, y1: Y(t), y2: Y(t), stroke: "var(--grid)", "stroke-width": 1 }));
+    svg.append(el("text", { x: m.i - 8, y: Y(t) + 4, "text-anchor": "end", "font-size": 11.5, fill: "var(--muted)" }, cfg.formato(t)));
+  }
+  svg.append(el("line", { x1: m.i, x2: W - m.d, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }));
+  for (const r of [1, 5, 10, 15, 20]) if (r <= n)
+    svg.append(el("text", { x: X(r), y: H - m.b + 16, "text-anchor": "middle", "font-size": 11.5, fill: "var(--muted)" }, r));
+  svg.append(el("text", { x: (m.i + W - m.d) / 2, y: H - 3, "text-anchor": "middle", "font-size": 11.5, fill: "var(--muted)" }, "Ronda"));
+  for (const ref of cfg.refs || [])
+    svg.append(el("line", { x1: m.i, x2: W - m.d, y1: Y(ref.valor), y2: Y(ref.valor), stroke: "var(--ref)", "stroke-width": 1.5,
+      "stroke-dasharray": ref.punteada ? "5 4" : "none" }));
+  const camino = (vals, hasta) => vals.slice(0, hasta).map((v, i) => `${i ? "L" : "M"}${X(i + 1).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+  const cur = cfg.cursor || n;
+  for (const s of cfg.series) {
+    if (cur < n) svg.append(el("path", { d: camino(s.valores, n), fill: "none", stroke: s.color, "stroke-width": 2, opacity: .22,
+      "stroke-linejoin": "round" }));
+    svg.append(el("path", { d: camino(s.valores, cur), fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round",
+      "stroke-linecap": "round", "stroke-dasharray": s.punteada ? "5 4" : "none" }));
+  }
+  if (cfg.cursor) {
+    svg.append(el("line", { x1: X(cur), x2: X(cur), y1: m.a, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }));
+    for (const s of cfg.series)
+      svg.append(el("circle", { cx: X(cur), cy: Y(s.valores[cur - 1]), r: 4.5, fill: s.color, stroke: "var(--surface)", "stroke-width": 2 }));
+  }
+  const guia = el("line", { y1: m.a, y2: H - m.b, stroke: "var(--muted)", "stroke-width": 1, "stroke-dasharray": "2 3", visibility: "hidden" });
+  svg.append(guia);
+  cont.append(svg);
+  const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; cont.append(tip);
+  const rondaEn = (ev) => {
+    const caja = svg.getBoundingClientRect();
+    const x = (ev.clientX - caja.left) / caja.width * W;
+    return Math.min(n, Math.max(1, Math.round((x - m.i) / (W - m.i - m.d) * (n - 1)) + 1));
+  };
+  svg.addEventListener("pointermove", (ev) => {
+    const r = rondaEn(ev), caja = svg.getBoundingClientRect();
+    guia.setAttribute("x1", X(r)); guia.setAttribute("x2", X(r)); guia.setAttribute("visibility", "visible");
+    tip.innerHTML = `<b>Ronda ${r}</b><br>` + cfg.series.map((s) =>
+      `<i style="background:${s.color}"></i>${s.nombre}: ${cfg.formato(s.valores[r - 1], true)}`).join("<br>");
+    tip.hidden = false;
+    const px = X(r) / W * caja.width;
+    tip.style.left = Math.min(Math.max(px, 90), caja.width - 90) + "px";
+    tip.style.top = Math.max(Y(Math.max(...cfg.series.map((s) => s.valores[r - 1]))) / H * caja.height - 10, 64) + "px";
+  });
+  svg.addEventListener("pointerleave", () => { tip.hidden = true; guia.setAttribute("visibility", "hidden"); });
+  if (cfg.alElegir) svg.addEventListener("click", (ev) => cfg.alElegir(rondaEn(ev)));
+}
+function leyenda(cont, items) {
+  cont.innerHTML = items.map((i) =>
+    `<span><i class="${i.punteada ? "punteada" : ""}" style="border-color:${i.color}"></i>${i.nombre}</span>`).join("");
+}
+function opciones(cont, lista, actual, alCambiar) {
+  cont.innerHTML = "";
+  for (const o of lista) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = o.nombre; b.dataset.valor = o.valor;
+    b.id = cont.id + "-" + String(o.valor).replace(/\W/g, "");
+    b.setAttribute("aria-pressed", String(o.valor === actual));
+    b.addEventListener("click", () => {
+      for (const x of cont.children) x.setAttribute("aria-pressed", String(x === b));
+      alCambiar(o.valor);
+    });
+    cont.append(b);
+  }
+}
+function tabla(cont, cabecera, filas) {
+  cont.innerHTML = "<table><thead><tr>" + cabecera.map((c, i) => `<th class="${i ? "n" : ""}">${c}</th>`).join("") +
+    "</tr></thead><tbody>" + filas.map((f) => "<tr>" + f.map((c, i) => `<td class="${i ? "n" : ""}">${c}</td>`).join("") + "</tr>").join("") +
+    "</tbody></table>";
+}
+
+/* ---------- Cifras de cabecera (E1, MLP) ---------- */
+$("c-fed").textContent = dec(D.e1.mlp.federado.f1);
+$("c-cen").textContent = dec(D.e1.mlp.centralizado.f1);
+$("c-ais").textContent = dec(D.e1.mlp.aislado.f1);
+
+/* ---------- Ataque nuevo (E3) ---------- */
+const FAMILIAS = ["DoS", "DDoS", "PortScan", "BruteForce", "Web", "Bot"];
+const e3 = { familia: "DDoS", variante: "con", modelo: "mlp", ronda: 20, reproduciendo: null };
+const NODOS = [0, 1, 2, 3, 4].map((i) => {
+  const a = (-90 + i * 72) * Math.PI / 180;
+  return { x: 180 + 118 * Math.cos(a), y: 168 + 118 * Math.sin(a) };
+});
+const CENTRO = { x: 180, y: 168 };
+const CIRC = 2 * Math.PI * 24;
+let anillos = [], paquetes = [], textoServidor;
+
+function dibujarRed() {
+  const svg = $("red"); svg.innerHTML = "";
+  for (const n of NODOS) svg.append(el("line", { x1: CENTRO.x, y1: CENTRO.y, x2: n.x, y2: n.y, stroke: "var(--axis)", "stroke-width": 1.5 }));
+  paquetes = NODOS.map(() => { const c = el("circle", { r: 4, fill: "var(--s1)", visibility: "hidden" }); svg.append(c); return c; });
+  anillos = NODOS.map((n, i) => {
+    svg.append(el("circle", { cx: n.x, cy: n.y, r: 24, fill: i === 0 ? "var(--tint)" : "var(--surface)", stroke: "var(--grid)", "stroke-width": 5 }));
+    const arco = el("circle", { cx: n.x, cy: n.y, r: 24, fill: "none", stroke: "var(--s1)", "stroke-width": 5, "stroke-linecap": "butt",
+      "stroke-dasharray": `0 ${CIRC}`, transform: `rotate(-90 ${n.x} ${n.y})` });
+    svg.append(arco);
+    svg.append(el("text", { x: n.x, y: n.y + 4, "text-anchor": "middle", "font-size": 11.5, "font-weight": 600, fill: "var(--ink)" }, "Org. " + (i + 1)));
+    return arco;
+  });
+  svg.append(el("text", { x: NODOS[0].x + 34, y: NODOS[0].y - 6, "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, "Vio el ataque"));
+  svg.append(el("text", { x: NODOS[0].x + 34, y: NODOS[0].y + 9, "font-size": 11, fill: "var(--muted)" }, "las otras cuatro, no"));
+  svg.append(el("rect", { x: CENTRO.x - 44, y: CENTRO.y - 26, width: 88, height: 52, rx: 8, fill: "var(--surface)", stroke: "var(--ink2)", "stroke-width": 1.5 }));
+  svg.append(el("text", { x: CENTRO.x, y: CENTRO.y - 6, "text-anchor": "middle", "font-size": 11, fill: "var(--ink2)" }, "Servidor"));
+  textoServidor = el("text", { x: CENTRO.x, y: CENTRO.y + 14, "text-anchor": "middle", "font-size": 16, "font-weight": 600, fill: "var(--ink)" }, "");
+  svg.append(textoServidor);
+}
+function animarPaquetes() {
+  if (reducido) return;
+  const t0 = performance.now(), dur = 620;
+  const paso = (t) => {
+    const p = Math.min((t - t0) / dur, 1), ida = p < .5 ? p * 2 : (1 - p) * 2;
+    paquetes.forEach((c, i) => {
+      c.setAttribute("cx", CENTRO.x + (NODOS[i].x - CENTRO.x) * ida * .78);
+      c.setAttribute("cy", CENTRO.y + (NODOS[i].y - CENTRO.y) * ida * .78);
+      c.setAttribute("visibility", p < 1 ? "visible" : "hidden");
+    });
+    if (p < 1) requestAnimationFrame(paso);
+  };
+  requestAnimationFrame(paso);
+}
+function datosE3() { return D.e3[e3.modelo][e3.familia][e3.variante]; }
+function pintarE3() {
+  const d = datosE3(), r = e3.ronda, rec = d.recall[r - 1], det = d.detectado[r - 1];
+  const refs = [];
+  if (d.aislado !== undefined) refs.push({ nombre: "Nodo aislado que no vio el ataque", valor: d.aislado },
+    { nombre: "Detector de anomalías de ese nodo", valor: d.autoencoder, punteada: true });
+  graficoLineas($("g-e3"), {
+    titulo: "Fracción del ataque nuevo detectada en cada ronda",
+    series: [{ nombre: "Reconocido como " + e3.familia, color: "var(--s1)", valores: d.recall },
+             { nombre: "Marcado como algún ataque", color: "var(--s2)", valores: d.detectado }],
+    refs, dominio: [0, 1], marcas: [0, .25, .5, .75, 1], formato: (v, fino) => pct(v, fino ? 1 : 0),
+    cursor: r, alElegir: (n) => { detener(); e3.ronda = n; pintarE3(); },
+  });
+  leyenda($("ley-e3"), [
+    { nombre: "Reconocido como " + e3.familia, color: "var(--s1)" }, { nombre: "Marcado como algún ataque", color: "var(--s2)" },
+    ...refs.map((x) => ({ nombre: x.nombre, color: "var(--ref)", punteada: x.punteada })),
+  ]);
+  for (const a of anillos) a.setAttribute("stroke-dasharray", `${(rec * CIRC).toFixed(1)} ${CIRC}`);
+  textoServidor.textContent = pct(rec);
+  $("ronda").value = r; $("ronda-txt").textContent = "Ronda " + r;
+  const primera = d.recall.findIndex((v) => v >= .9) + 1;
+  const estable = primera && d.recall.slice(primera - 1).every((v) => v >= .8);
+  const quien = e3.modelo === "mlp" ? "el MLP" : "el Transformer";
+  let m;
+  if (e3.variante === "sin") m = `Con el promedio simple, el modelo global nunca reconoce ${e3.familia}: 0% en las 20 rondas. Los cuatro nodos que no vieron el ataque borran en cada ronda lo que aprendió el que sí lo vio.`;
+  else if (!primera) m = `Con máscara de clases, ${quien} no llega a reconocer el 90% de ${e3.familia} en 20 rondas; termina en ${pct(d.recall[19], 1)}.`;
+  else if (!estable) m = `Con máscara de clases, ${quien} llega al 90% de ${e3.familia} en la ronda ${primera}, pero la curva oscila y no se mantiene.`;
+  else m = `Con máscara de clases, ${quien} reconoce más del 90% de ${e3.familia} desde la ronda ${primera}. Cada nodo entrena solo sobre las familias que conoce, así que no borra lo que aprendió otro.`;
+  $("mensaje").textContent = m;
+  const celdas = [[pct(rec, 1), "Reconocido como " + e3.familia], [pct(det, 1), "Marcado como algún ataque"],
+    [pct(d.fpr[r - 1], 1), "Tráfico benigno marcado como ataque"]];
+  if (d.aislado !== undefined) celdas.push([pct(d.aislado, 1), "Nodo aislado, sin colaborar"], [pct(d.autoencoder, 1), "Detector de anomalías de ese nodo"]);
+  $("lectura").innerHTML = celdas.map(([v, t]) => `<div><b>${v}</b><span>${t}</span></div>`).join("");
+}
+function detener() {
+  if (e3.reproduciendo) { clearInterval(e3.reproduciendo); e3.reproduciendo = null; }
+  $("btn-play").textContent = "Reproducir";
+}
+function reproducir() {
+  if (e3.reproduciendo) return detener();
+  if (e3.ronda >= 20) e3.ronda = 0;
+  $("btn-play").textContent = "Pausar";
+  const avanzar = () => {
+    if (e3.ronda >= 20) return detener();
+    e3.ronda += 1; animarPaquetes(); pintarE3();
+  };
+  avanzar();
+  e3.reproduciendo = setInterval(avanzar, reducido ? 450 : 760);
+}
+function controlesE3() {
+  opciones($("op-fam"), FAMILIAS.map((f) => ({ nombre: f, valor: f })), e3.familia, (v) => { detener(); e3.familia = v; pintarE3(); });
+  opciones($("op-var"), [{ nombre: "Promedio simple", valor: "sin" }, { nombre: "Con máscara de clases", valor: "con" }], e3.variante,
+    (v) => { detener(); e3.variante = v; pintarE3(); });
+  opciones($("op-mod"), [{ nombre: "MLP", valor: "mlp" }, { nombre: "Transformer", valor: "transformer" }], e3.modelo,
+    (v) => { detener(); e3.modelo = v; if (v === "transformer") e3.variante = "con"; controlesE3(); pintarE3(); });
+  const sinTransformer = e3.modelo === "transformer";
+  $("op-var").children[0].disabled = sinTransformer;
+  $("aviso-var").hidden = !sinTransformer;
+}
+$("btn-play").addEventListener("click", reproducir);
+$("ronda").addEventListener("input", (ev) => { detener(); e3.ronda = Number(ev.target.value); pintarE3(); });
+
+/* ---------- Nodos distintos (E2) ---------- */
+const E2_METODOS = [["fedavg", "FedAvg (promedio simple)", "var(--s1)"], ["fedprox", "FedProx", "var(--s2)"], ["local", "Encoder federado + cabeza local", "var(--s3)"]];
+const E2_ALPHAS = [["0.1", "Nodos muy distintos", "alpha = 0,1"], ["0.5", "Nodos distintos", "alpha = 0,5"], ["1.0", "Nodos parecidos", "alpha = 1,0"]];
+let e2medida = "global";
+function pintarE2() {
+  const cont = $("g-e2"); cont.innerHTML = "";
+  for (const [a, titulo, sub] of E2_ALPHAS) {
+    const panel = document.createElement("div"); panel.className = "panel";
+    panel.innerHTML = `<h3>${titulo}</h3><p class="sub">${sub} · F1 macro por ronda</p><div class="grafico"></div>`;
+    cont.append(panel);
+    graficoLineas(panel.querySelector(".grafico"), {
+      titulo: titulo, ancho: 340, alto: 250,
+      series: E2_METODOS.map(([k, nombre, color]) => ({ nombre: nombre.split(" (")[0], color, valores: D.e2[a][k][e2medida] })),
+      dominio: [.3, 1], marcas: [.4, .6, .8, 1], formato: (v, fino) => dec(v, fino ? 3 : 1),
+    });
+  }
+  leyenda($("ley-e2"), E2_METODOS.map(([, nombre, color]) => ({ nombre, color })));
+  tabla($("tabla-e2"), ["Ronda 20, general / propio", ...E2_ALPHAS.map((x) => x[2])],
+    E2_METODOS.map(([k, nombre]) => [nombre, ...E2_ALPHAS.map(([a]) => dec(D.e2[a][k].global[19]) + " / " + dec(D.e2[a][k].local[19]))]));
+}
+opciones($("op-med"), [{ nombre: "Tráfico general", valor: "global" }, { nombre: "Tráfico propio de cada nodo", valor: "local" }], e2medida,
+  (v) => { e2medida = v; pintarE2(); });
+
+/* ---------- Nodos maliciosos (E4) ---------- */
+const E4_METODOS = [["fedavg", "FedAvg (promedio simple)", "var(--s1)"], ["krum", "Krum", "var(--s2)"], ["mediana", "Mediana", "var(--s3)"]];
+function pintarE4() {
+  const cont = $("g-e4"); cont.innerHTML = "";
+  for (const n of ["1", "2", "3"]) {
+    const panel = document.createElement("div"); panel.className = "panel";
+    panel.innerHTML = `<h3>${n} de 10 nodos ${n === "1" ? "ataca" : "atacan"}</h3><p class="sub">F1 macro por ronda · el eje empieza en 0,85</p><div class="grafico"></div>`;
+    cont.append(panel);
+    graficoLineas(panel.querySelector(".grafico"), {
+      titulo: n + " nodos maliciosos", ancho: 340, alto: 250,
+      series: [...E4_METODOS.map(([k, nombre, color]) => ({ nombre: nombre.split(" (")[0], color, valores: D.e4[n][k].f1 })),
+        { nombre: "Sin atacantes", color: "var(--ref)", valores: D.e4[n]["FedAvg sin atacantes"].f1, punteada: true }],
+      dominio: [.85, 1], marcas: [.85, .9, .95, 1], formato: (v, fino) => dec(v, fino ? 3 : 2),
+    });
+  }
+  leyenda($("ley-e4"), [...E4_METODOS.map(([, nombre, color]) => ({ nombre, color })),
+    { nombre: "FedAvg sin atacantes", color: "var(--ref)", punteada: true }]);
+  tabla($("tabla-e4"), ["Ronda 20, F1 macro (falsos positivos)", ...E4_METODOS.map((x) => x[1].split(" (")[0])],
+    ["1", "2", "3"].map((n) => [n + (n === "1" ? " atacante" : " atacantes"),
+      ...E4_METODOS.map(([k]) => dec(D.e4[n][k].f1[19]) + " (" + pct(D.e4[n][k].fpr, 1) + ")")])
+      .concat([["Sin atacantes", dec(D.e4["1"]["FedAvg sin atacantes"].f1[19]) + " (" + pct(D.e4["1"]["FedAvg sin atacantes"].fpr, 1) + ")", "–", "–"]]));
+}
+
+/* ---------- Pestañas por hash ---------- */
+const VISTAS = ["ataque-nuevo", "nodos-distintos", "nodos-maliciosos"];
+function mostrarVista() {
+  const actual = VISTAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : VISTAS[0];
+  if (actual !== VISTAS[0]) detener();
+  for (const v of VISTAS) $("vista-" + v).hidden = v !== actual;
+  for (const a of document.querySelectorAll("nav a"))
+    if (a.getAttribute("href") === "#" + actual) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+}
+window.addEventListener("hashchange", mostrarVista);
+
+dibujarRed(); controlesE3(); pintarE3(); pintarE2(); pintarE4(); mostrarVista();
+</script>
+
+</body>
+</html>

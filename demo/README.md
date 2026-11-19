@@ -33,10 +33,14 @@ e3_mlp_PortScan_aislado_nodo3.pt     e3_PortScan_flujos.csv
 Con Docker Desktop abierto, desde esta carpeta:
 
 ```
-docker compose up -d --build        # levanta los tres nodos (la primera vez descarga ~1 GB)
-docker compose run --rm atacante    # envía el tráfico; Enter pasa a la fase siguiente
+docker compose up -d --build        # levanta los tres nodos y el panel (la primera vez descarga ~1 GB)
+open http://localhost:8080          # abre el panel en el navegador
 docker compose down                 # apaga todo al terminar
 ```
+
+En el panel: elegí una fase (cambia los pesos de los tres nodos) y apretá **Enviar tráfico**. Cada cuadrado es un flujo y se pinta según lo que respondió el contenedor de ese nodo. La tabla de abajo va guardando el resultado de cada fase.
+
+Lo mismo sin navegador, en la terminal: `docker compose run --rm atacante` (Enter pasa a la fase siguiente).
 
 Para ver qué registra cada nodo mientras tanto, en otra terminal:
 
