@@ -14,32 +14,35 @@
             --vacio: #2a2927; --reconoce: #199e70; --otro: #3987e5; --pasa: #d95926; --normal: #5d5b56; }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px 16px 48px; background: var(--fondo); color: var(--texto);
+  body { margin: 0; padding: 14px 16px 48px; background: var(--fondo); color: var(--texto);
          font: 16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 1180px; margin: 0 auto; }
-  h1 { font-size: 26px; margin: 0 0 4px; }
-  p.sub { margin: 0 0 20px; color: var(--suave); max-width: 70ch; }
+  main { max-width: 1600px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  p.sub { margin: 0 0 10px; color: var(--suave); font-size: 14px; }
   .controles { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
   .fases { display: flex; flex-wrap: wrap; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
-  button { font: inherit; color: var(--texto); background: var(--tarjeta); border: 0; padding: 10px 16px; cursor: pointer; }
+  button { font: inherit; font-size: 15px; color: var(--texto); background: var(--tarjeta); border: 0; padding: 8px 14px; cursor: pointer; }
   .fases button + button { border-left: 1px solid var(--borde); }
   .fases button[aria-pressed="true"] { background: var(--texto); color: var(--fondo); }
-  #enviar { border-radius: 8px; background: var(--pasa); color: #fff; font-weight: 600; padding: 10px 22px; }
+  #enviar { border-radius: 8px; background: var(--pasa); color: #fff; font-weight: 600; padding: 8px 20px; }
   button:disabled { opacity: .5; cursor: default; }
-  #mensaje { min-height: 48px; margin: 8px 0 16px; font-size: 18px; }
-  .nodos { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
-  .nodo { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 16px; }
-  .nodo h2 { font-size: 18px; margin: 0; }
-  .pesos { font: 12px ui-monospace, Menlo, monospace; color: var(--suave); margin: 2px 0 12px; word-break: break-all; }
-  .rotulo { font-size: 13px; color: var(--suave); margin: 10px 0 6px; }
-  .grilla { display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; }
-  .grilla i { aspect-ratio: 1; border-radius: 2px; background: var(--vacio); transition: background .15s; }
+  #mensaje { min-height: 50px; margin: 6px 0 22px; font-size: 16px; }
+  /* Todos los agentes en una fila (--n la pone el script), para verlos sin desplazarse */
+  .nodos { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 900px) { .nodos { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); } }
+  .nodo { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 12px; min-width: 0; }
+  .nodo h2 { font-size: 16px; margin: 0; }
+  .pesos { font-size: 12px; color: var(--suave); margin: 2px 0 6px; }
+  .pesos code { display: block; font: 11px ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rotulo { font-size: 12px; color: var(--suave); margin: 8px 0 4px; }
+  .grilla { display: grid; grid-template-columns: repeat(30, 1fr); gap: 1px; }
+  .grilla i { aspect-ratio: 1; border-radius: 1px; background: var(--vacio); transition: background .15s; }
   i.reconoce { background: var(--reconoce); } i.otro { background: var(--otro); }
   i.pasa { background: var(--pasa); } i.normal { background: var(--normal); }
-  .cifras { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; font-size: 14px; }
+  .cifras { display: flex; flex-wrap: wrap; gap: 0 12px; margin-top: 4px; font-size: 12px; }
   .cifras b { font-variant-numeric: tabular-nums; }
   .punto { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
-  .leyenda { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 20px 0 8px; font-size: 14px; color: var(--suave); }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 12px 0 8px; font-size: 13px; color: var(--suave); }
   table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 15px; }
   th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--borde); font-variant-numeric: tabular-nums; }
   th:first-child, td:first-child { text-align: left; }
@@ -50,7 +53,7 @@
   .nodo header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .insignia { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--borde); color: var(--suave); }
   .insignia.malo { border-color: var(--pasa); color: var(--pasa); }
-  .confianza { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; font-size: 14px; }
+  .confianza { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 8px; align-items: center; font-size: 12px; }
   .barra { height: 6px; border-radius: 3px; background: var(--vacio); overflow: hidden; }
   .barra span { display: block; height: 100%; background: var(--otro); transition: width .3s; }
   .barra.baja span { background: var(--pasa); }
@@ -59,6 +62,19 @@
   #charla li.acepta { border-left-color: var(--reconoce); } #charla li.rechaza { border-left-color: var(--pasa); }
   #charla small { display: block; color: var(--suave); }
   .nada { color: var(--suave); font-size: 15px; margin: 8px 0 0; }
+  /* Animación de los mensajes entre agentes */
+  .nodo { transition: box-shadow .25s, border-color .25s; }
+  .nodo.emite { border-color: var(--otro); box-shadow: 0 0 0 3px var(--otro); }
+  .nodo.acepta { border-color: var(--reconoce); box-shadow: 0 0 0 3px var(--reconoce); }
+  .nodo.rechaza { border-color: var(--pasa); box-shadow: 0 0 0 3px var(--pasa); }
+  .nodo.ignora { border-color: var(--suave); box-shadow: 0 0 0 3px var(--suave); }
+  #capa { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+  #capa path { fill: none; stroke: var(--otro); stroke-width: 2; stroke-dasharray: 6 6; opacity: .7; }
+  .paquete, .veredicto { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+    font-size: 13px; font-weight: 600; color: #fff; padding: 3px 10px; border-radius: 999px; }
+  .paquete { background: var(--otro); box-shadow: 0 2px 8px rgba(0, 0, 0, .35); }
+  .veredicto.acepta { background: var(--reconoce); } .veredicto.rechaza { background: var(--pasa); }
+  .veredicto.ignora { background: var(--suave); }
 </style>
 </head>
 <body>
@@ -91,6 +107,7 @@
     <tbody id="resumen"></tbody>
   </table></div>
 </main>
+<svg id="capa"></svg>
 
 <script>
 const LOTE = 15;        // flujos por envío: con lotes chicos se ve cómo se va llenando la grilla
@@ -117,8 +134,9 @@ async function pedir(ruta, datos) {
 const esVictima = n => n.direccion !== info.especialista && n.direccion !== info.malicioso;
 
 function dibujarNodos() {
+  $("nodos").style.setProperty("--n", info.nodos.length);
   $("nodos").innerHTML = info.nodos.map((n, k) => `
-    <section class="nodo">
+    <section class="nodo" id="nodo${k}">
       <div id="cab${k}"></div>
       <div class="rotulo">${info.flujos_ataque} flujos de ${info.familia}</div>
       <div class="grilla" id="a${k}">${"<i></i>".repeat(info.flujos_ataque)}</div>
@@ -139,10 +157,10 @@ function dibujarEstado() {
                    : n.direccion === info.malicioso ? `<span class="insignia malo">malicioso</span>` : "";
     const origen = n.pesos === n.propio ? "modelo propio" : "modelo recibido de un par";
     $("cab" + k).innerHTML = `<header><h2>${esc(n.nombre)}</h2>${insignia}</header>
-      <div class="pesos">${origen}: ${esc(n.pesos)}</div>`;
+      <div class="pesos">${origen}<code title="${esc(n.pesos)}">${esc(n.pesos)}</code></div>`;
     const pares = Object.entries(n.reputacion).filter(([par]) => nombres[par]);
     $("rep" + k).innerHTML = !n.comunicar ? "" : `<div class="rotulo">Confianza en sus pares</div><div class="confianza">` +
-      pares.map(([par, valor]) => `<span>${esc(nombres[par])}</span>
+      pares.map(([par, valor]) => `<span>${esc(nombres[par].replace("Organización", "Org."))}</span>
         <div class="barra ${valor < 0.2 ? "baja" : ""}"><span style="width:${100 * valor}%"></span></div>
         <b>${valor.toFixed(2)}</b>`).join("") + `</div>`;
   });
@@ -151,6 +169,73 @@ function dibujarEstado() {
       te ofrezco un modelo». <b>${esc(m.para)} ${DECISION[m.decision] || esc(m.decision)}</b>
       <small>${esc(m.archivo)}: ${esc(m.motivo)}. Confianza en ${esc(m.de)}: ${m.reputacion.toFixed(2)}</small></li>`).join("")
     || `<li class="nada" style="border:0;padding-left:0">${info.fase === 1 ? "En esta fase los agentes no se comunican." : "Todavía no se dijeron nada."}</li>`;
+}
+
+// ---------------------------------------------------------------------------
+// Animación: cada mensaje viaja de la tarjeta del que ofrece a la del que recibe
+// ---------------------------------------------------------------------------
+const VIAJE_MS = 900, VEREDICTO_MS = 1100;
+const dormir = ms => new Promise(listo => setTimeout(listo, ms));
+const sinMovimiento = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let vistos = 0;  // mensajes de la conversación que ya se animaron
+
+// Punto de la página donde "sale" o "entra" un mensaje: arriba de la tarjeta, al centro
+function ancla(k) {
+  const r = $("nodo" + k).getBoundingClientRect();
+  return {x: r.left + r.width / 2 + scrollX, y: r.top + 20 + scrollY};
+}
+
+// Un mensaje: una línea punteada y una etiqueta que la recorre en arco
+async function viajar(desde, hasta) {
+  const a = ancla(desde), b = ancla(hasta);
+  const alto = Math.min(a.y, b.y) - 50 - Math.abs(a.x - b.x) / 14;  // punto de control: el arco pasa por arriba
+  const cx = (a.x + b.x) / 2 + (a.x === b.x ? 90 : 0);
+  const punto = t => ({x: (1 - t) ** 2 * a.x + 2 * t * (1 - t) * cx + t * t * b.x,
+                       y: (1 - t) ** 2 * a.y + 2 * t * (1 - t) * alto + t * t * b.y});
+  const linea = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  linea.setAttribute("d", `M${a.x} ${a.y} Q${cx} ${alto} ${b.x} ${b.y}`);
+  $("capa").append(linea);
+  const paquete = Object.assign(document.createElement("div"), {className: "paquete", textContent: "modelo"});
+  document.body.append(paquete);
+  const pasos = Array.from({length: 21}, (_, i) => punto(i / 20))
+    .map(p => ({transform: `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)`}));
+  await paquete.animate(pasos, {duration: sinMovimiento ? 1 : VIAJE_MS, easing: "ease-in-out", fill: "forwards"}).finished;
+  paquete.remove(); linea.remove();
+}
+
+// Muestra sobre la tarjeta del que recibe qué decidió
+function veredicto(k, decision) {
+  const p = ancla(k), nodo = $("nodo" + k);
+  const cartel = Object.assign(document.createElement("div"),
+    {className: "veredicto " + decision, textContent: DECISION[decision] || decision});
+  cartel.style.transform = `translate(${p.x}px, ${p.y - 30}px) translate(-50%, -50%)`;
+  document.body.append(cartel);
+  nodo.classList.add(decision);
+  return dormir(VEREDICTO_MS).then(() => { cartel.remove(); nodo.classList.remove(decision); });
+}
+
+// Anima los mensajes nuevos. Los que un agente manda a la vez a varios pares salen juntos.
+async function animarMensajes(nodos, conversacion) {
+  const indice = Object.fromEntries(nodos.map((n, k) => [n.nombre, k]));
+  const nuevos = conversacion.slice(vistos).filter(m => m.de in indice && m.para in indice);
+  vistos = conversacion.length;
+  const grupos = [];
+  for (const m of nuevos) {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo[0].de === m.de && !ultimo.some(otro => otro.para === m.para)) ultimo.push(m);
+    else grupos.push([m]);
+  }
+  for (const grupo of grupos) {
+    const m = grupo[0], emisor = $("nodo" + indice[m.de]);
+    $("mensaje").textContent = `${m.de} avisa a ${grupo.map(g => g.para.replace("Organización ", "")).join(", ")}: ` +
+      `«vi ${m.cantidad} flujos de ${m.familia}, les ofrezco un modelo».`;
+    emisor.classList.add("emite");
+    await Promise.all(grupo.map(g => viajar(indice[g.de], indice[g.para])));
+    emisor.classList.remove("emite");
+    $("mensaje").textContent = grupo.map(g => `${g.para.replace("Organización ", "")} ${DECISION[g.decision] || g.decision}`).join(" · ") +
+      (grupo.some(g => g.decision === "acepta") ? ". Quien lo acepta pasa a usar ese modelo." : ".");
+    await Promise.all(grupo.map(g => veredicto(indice[g.para], g.decision)));
+  }
 }
 
 function dibujarFases() {
@@ -180,12 +265,13 @@ async function enviar() {
   ocupado = true; $("enviar").disabled = true;
   try {
     info = await pedir("/api/fase", {numero: info.fase});  // cada envío arranca con los agentes como al principio
-    dibujarNodos();
+    dibujarNodos(); vistos = 0;
     const total = {reconoce: 0, otro: 0, pasa: 0, falsas: 0, ataque: 0, normal: 0};
     const porNodo = info.nodos.map(() => ({reconoce: 0, otro: 0, pasa: 0, falsas: 0, bloquea: 0}));
     const maximo = Math.max(info.flujos_ataque, info.flujos_normales);
     for (let desde = 0; desde < maximo; desde += LOTE) {
       const respuesta = await pedir("/api/atacar", {desde, hasta: desde + LOTE});
+      const antes = info;
       info = respuesta;
       respuesta.lote.forEach((nodo, k) => {
         const c = porNodo[k], cuenta = esVictima(info.nodos[k]);
@@ -205,8 +291,12 @@ async function enviar() {
         $("ca" + k).innerHTML = `<span>Reconoce: <b>${c.reconoce}</b></span><span>Otro nombre: <b>${c.otro}</b></span><span>Deja pasar: <b>${c.pasa}</b></span><span>Bloquea: <b>${c.bloquea}</b></span>`;
         $("cn" + k).innerHTML = `<span>Falsas alarmas: <b>${c.falsas}</b></span>`;
       });
+      // Primero se ve viajar cada mensaje; recién después cambian el modelo y la confianza en pantalla
+      const delLote = info; info = antes;
+      await animarMensajes(delLote.nodos, delLote.conversacion);
+      info = delLote;
       dibujarEstado();
-      await new Promise(listo => setTimeout(listo, PAUSA_MS));
+      await dormir(PAUSA_MS);
     }
     resultados[info.fase] = total;
     dibujarResumen();
