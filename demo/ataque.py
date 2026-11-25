@@ -70,11 +70,16 @@ def esperar_nodos() -> None:
             sys.exit(f"El nodo {nodo} no responde. ¿Corriste 'docker compose up -d'?")
 
 
-def leer_flujos() -> tuple[list[list[float]], list[list[float]]]:
+def familias_disponibles() -> list[str]:
+    """Familias de ataque que tienen su muestra de flujos en la carpeta de modelos."""
+    return [familia for familia in FAMILIAS[1:] if (DIR_MODELOS / f"e3_{familia}_flujos.csv").exists()]
+
+
+def leer_flujos(familia: str = FAMILIA) -> tuple[list[list[float]], list[list[float]]]:
     """Lee la muestra guardada por E3. Devuelve (flujos benignos, flujos del ataque)."""
-    ruta = DIR_MODELOS / f"e3_{FAMILIA}_flujos.csv"
+    ruta = DIR_MODELOS / f"e3_{familia}_flujos.csv"
     if not ruta.exists():
-        sys.exit(f"Falta {ruta.name}. Se genera con: python -m experiments.e3_zero_day --familia {FAMILIA} --guardar")
+        sys.exit(f"Falta {ruta.name}. Se genera con: python -m experiments.e3_zero_day --familia {familia} --guardar")
     benignos, ataque = [], []
     with open(ruta) as archivo:
         for fila in csv.DictReader(archivo):
@@ -88,10 +93,11 @@ def nodos_de_fase(numero: int) -> list[str]:
     return [nodo for nodo in NODOS if numero == 3 or nodo != MALICIOSO]
 
 
-def preparar_fase(numero: int) -> None:
-    """Cada agente vuelve a su modelo propio. Desde la fase 2 pueden hablar entre ellos."""
+def preparar_fase(numero: int, familia: str = FAMILIA) -> None:
+    """Cada agente vuelve a su modelo propio para esa familia. Desde la fase 2 pueden hablar entre ellos."""
     for nodo in NODOS:
-        pedir(nodo, "/reiniciar", {"comunicar": numero >= 2 and nodo in nodos_de_fase(numero)})
+        pedir(nodo, "/reiniciar", {"comunicar": numero >= 2 and nodo in nodos_de_fase(numero),
+                                   "familia": familia})
 
 
 def enviar_lote(nodos: list[str], ataque: list, benignos: list, desde: int, hasta: int) -> dict:

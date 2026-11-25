@@ -63,7 +63,7 @@ open http://localhost:8080          # abre el panel en el navegador
 docker compose down                 # apaga todo al terminar
 ```
 
-En el panel: elegí una fase y apretá **Enviar tráfico**. Cada cuadrado es un flujo y se pinta según lo que respondió ese agente. Debajo de cada agente está la confianza que tiene en sus pares, y más abajo la conversación completa: quién ofreció qué, qué decidió el otro y por qué. Cada envío arranca con los agentes como al principio (modelo propio y reputaciones en 0,5).
+En el panel: elegí el ataque y la fase, y apretá **Enviar tráfico**. Cada cuadrado es un flujo y se pinta según lo que respondió ese agente. Debajo de cada agente está la confianza que tiene en sus pares, y más abajo la conversación completa: quién ofreció qué, qué decidió el otro y por qué. Cada envío arranca con los agentes como al principio (modelo propio y reputaciones en 0,5).
 
 Lo mismo sin navegador, en la terminal: `docker compose run --rm atacante` (Enter pasa a la fase siguiente).
 
@@ -75,8 +75,9 @@ docker compose logs -f
 
 Variantes:
 
-- Otra familia u otro modelo (tienen que existir sus archivos): `FAMILIA=Web MODELO=mlp docker compose up -d`.
-- Que A ofrezca la federación **sin** máscara: `OFRECE_A=e3_mlp_PortScan_federado.pt docker compose up -d`. Sirve para mostrar el resultado de E3: sin máscara, los nodos que no vieron el ataque borran lo que aprendió el que sí lo vio.
+- Otro ataque: con los botones **Ataque nuevo** del panel, sin reiniciar nada. Aparecen las familias que tienen archivos en la carpeta de modelos; el repositorio trae las seis.
+- Arrancar con otra familia (o usar la versión de terminal con ella): `FAMILIA=Web docker compose up -d` y `FAMILIA=Web docker compose run --rm atacante`.
+- Que A ofrezca la federación **sin** máscara: `OFRECE_A='e3_mlp_<familia>_federado.pt' docker compose up -d` (con las comillas). Sirve para mostrar el resultado de E3: sin máscara, los nodos que no vieron el ataque borran lo que aprendió el que sí lo vio.
 
 ## Cómo leer la salida
 

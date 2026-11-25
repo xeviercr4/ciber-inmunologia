@@ -8,7 +8,10 @@
 #
 # Variables opcionales:
 #   FAMILIA (PortScan), MODELO (mlp), DIR_MODELOS (carpeta con los .pt y .csv)
-#   OFRECE_A: archivo que ofrece A. Con e3_mlp_PortScan_federado.pt se ve la federación sin máscara.
+#   OFRECE_A: archivo que ofrece A. Con 'e3_mlp_<familia>_federado.pt' se ve la federación sin máscara.
+#
+# En PESOS, VALIDACION y OFRECE, cada agente reemplaza <familia> por la familia de ataque elegida:
+# arranca con FAMILIA y el panel puede cambiarla sin reiniciar los contenedores.
 
 x-nodo: &nodo
   build:
@@ -29,44 +32,49 @@ services:
     <<: *nodo
     environment:
       NOMBRE: Organización A
+      FAMILIA: ${FAMILIA:-PortScan}
       DIRECCION: nodo-a
       PARES: nodo-b,nodo-c,nodo-d,nodo-e
-      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo0.pt
-      VALIDACION: e3_${FAMILIA:-PortScan}_validacion_nodo0.csv
-      OFRECE: ${OFRECE_A:-e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_federado_mascara.pt}
+      PESOS: e3_${MODELO:-mlp}_<familia>_aislado_nodo0.pt
+      VALIDACION: e3_<familia>_validacion_nodo0.csv
+      OFRECE: ${OFRECE_A:-e3_${MODELO:-mlp}_<familia>_federado_mascara.pt}
   nodo-b:
     <<: *nodo
     environment:
       NOMBRE: Organización B
+      FAMILIA: ${FAMILIA:-PortScan}
       DIRECCION: nodo-b
       PARES: nodo-a,nodo-c,nodo-d,nodo-e
-      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo1.pt
-      VALIDACION: e3_${FAMILIA:-PortScan}_validacion_nodo1.csv
+      PESOS: e3_${MODELO:-mlp}_<familia>_aislado_nodo1.pt
+      VALIDACION: e3_<familia>_validacion_nodo1.csv
   nodo-c:
     <<: *nodo
     environment:
       NOMBRE: Organización C
+      FAMILIA: ${FAMILIA:-PortScan}
       DIRECCION: nodo-c
       PARES: nodo-a,nodo-b,nodo-d,nodo-e
-      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo2.pt
-      VALIDACION: e3_${FAMILIA:-PortScan}_validacion_nodo2.csv
+      PESOS: e3_${MODELO:-mlp}_<familia>_aislado_nodo2.pt
+      VALIDACION: e3_<familia>_validacion_nodo2.csv
   nodo-d:
     <<: *nodo
     environment:
       NOMBRE: Organización D
+      FAMILIA: ${FAMILIA:-PortScan}
       DIRECCION: nodo-d
       PARES: nodo-a,nodo-b,nodo-c,nodo-e
-      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_aislado_nodo3.pt
-      VALIDACION: e3_${FAMILIA:-PortScan}_validacion_nodo3.csv
+      PESOS: e3_${MODELO:-mlp}_<familia>_aislado_nodo3.pt
+      VALIDACION: e3_<familia>_validacion_nodo3.csv
   nodo-e:
     <<: *nodo
     environment:
       NOMBRE: Organización E
+      FAMILIA: ${FAMILIA:-PortScan}
       DIRECCION: nodo-e
       PARES: nodo-a,nodo-b,nodo-c,nodo-d
-      PESOS: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_envenenado.pt
-      VALIDACION: e3_${FAMILIA:-PortScan}_validacion_nodo4.csv
-      OFRECE: e3_${MODELO:-mlp}_${FAMILIA:-PortScan}_envenenado.pt
+      PESOS: e3_${MODELO:-mlp}_<familia>_envenenado.pt
+      VALIDACION: e3_<familia>_validacion_nodo4.csv
+      OFRECE: e3_${MODELO:-mlp}_<familia>_envenenado.pt
 
   # Panel web: http://localhost:8080
   panel:

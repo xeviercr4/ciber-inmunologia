@@ -24,6 +24,7 @@
   button { font: inherit; font-size: 15px; color: var(--texto); background: var(--tarjeta); border: 0; padding: 8px 14px; cursor: pointer; }
   .fases button + button { border-left: 1px solid var(--borde); }
   .fases button[aria-pressed="true"] { background: var(--texto); color: var(--fondo); }
+  .etiqueta { font-size: 13px; color: var(--suave); }
   #enviar { border-radius: 8px; background: var(--pasa); color: #fff; font-weight: 600; padding: 8px 20px; }
   button:disabled { opacity: .5; cursor: default; }
   #mensaje { min-height: 50px; margin: 6px 0 22px; font-size: 16px; }
@@ -83,6 +84,10 @@
   <p class="sub" id="sub"></p>
 
   <div class="controles">
+    <span class="etiqueta">Ataque nuevo</span>
+    <div class="fases" id="familias"></div>
+  </div>
+  <div class="controles">
     <div class="fases" id="fases"></div>
     <button id="enviar">Enviar tráfico</button>
   </div>
@@ -121,7 +126,7 @@ const DECISION = {acepta: "lo acepta", rechaza: "lo rechaza", ignora: "lo ignora
 let info = null, ocupado = false;
 const $ = id => document.getElementById(id);
 const esc = t => String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-const resultados = {};  // fase -> conteos
+let resultados = {};  // fase -> conteos (de la familia elegida)
 
 async function pedir(ruta, datos) {
   const r = await fetch(ruta, datos ? {method: "POST", body: JSON.stringify(datos)} : undefined);
@@ -239,6 +244,11 @@ async function animarMensajes(nodos, conversacion) {
 }
 
 function dibujarFases() {
+  $("familias").innerHTML = info.familias.map(f =>
+    `<button data-familia="${f}" aria-pressed="${f === info.familia}">${f}</button>`).join("");
+  $("sub").textContent = `El ataque nuevo es ${info.familia}. Solo la organización A lo tiene en sus datos. Cada organización ` +
+    `es un agente en su propio contenedor: clasifica el tráfico, decide qué bloquear y decide si acepta lo que le ofrecen ` +
+    `los demás. Cada cuadrado es un flujo de red del conjunto de prueba.`;
   $("fases").innerHTML = info.fases.map((t, k) =>
     `<button data-fase="${k + 1}" aria-pressed="${info.fase === k + 1}">${k + 1}. ${t}</button>`).join("");
   $("mensaje").textContent = EXPLICACION[info.fase - 1];
@@ -254,10 +264,11 @@ function dibujarResumen() {
   }).join("");
 }
 
-async function elegirFase(numero) {
+async function elegirFase(numero, familia) {
   if (ocupado) return;
-  info = await pedir("/api/fase", {numero});
-  dibujarFases(); dibujarNodos();
+  if (familia && familia !== info.familia) resultados = {};  // otro ataque: la tabla empieza en blanco
+  info = await pedir("/api/fase", {numero, familia});
+  dibujarFases(); dibujarNodos(); dibujarResumen();
 }
 
 async function enviar() {
@@ -313,16 +324,14 @@ async function enviar() {
 }
 
 $("fases").addEventListener("click", e => { if (e.target.dataset.fase) elegirFase(+e.target.dataset.fase); });
+$("familias").addEventListener("click", e => { if (e.target.dataset.familia) elegirFase(1, e.target.dataset.familia); });
 $("enviar").addEventListener("click", enviar);
 
 (async () => {
   info = await pedir("/api/estado");
-  $("sub").textContent = `El ataque nuevo es ${info.familia}. Solo la organización A lo tiene en sus datos. Cada organización ` +
-    `es un agente en su propio contenedor: clasifica el tráfico, decide qué bloquear y decide si acepta lo que le ofrecen ` +
-    `los demás. Cada cuadrado es un flujo de red del conjunto de prueba.`;
   // ?auto=N corre la fase N sin tocar nada (sirve para revisar la página con una captura)
   const auto = +new URLSearchParams(location.search).get("auto");
-  await elegirFase(auto || 1); dibujarResumen();
+  await elegirFase(auto || 1);
   if (auto) enviar();
 })();
 </script>

@@ -21,16 +21,19 @@ Pedidos HTTP (puerto 8000):
     GET  /estado     -> modelo cargado, reputación de sus pares y mensajes recibidos
     POST /analizar   -> {"flujos": [[...], ...]}  => familia y acción para cada flujo
     POST /mensaje    -> oferta de un par          => {"decision": ..., "motivo": ...}
-    POST /reiniciar  -> {"comunicar": true|false}: vuelve a su modelo propio y olvida lo demás
-                        (lo usa el panel para preparar cada fase de la demo)
+    POST /reiniciar  -> {"comunicar": true|false, "familia": "Web"}: vuelve a su modelo propio y
+                        olvida lo demás. Si se indica otra familia, pasa a usar los archivos de esa
+                        (lo usa el panel para preparar cada fase de la demo y para cambiar de ataque)
 
 Variables de entorno:
     NOMBRE      nombre de la organización
     DIRECCION   nombre de este contenedor en la red (cómo lo llaman sus pares)
     PARES       direcciones de los otros agentes, separadas por comas
+    FAMILIA     familia de ataque con la que arranca (el "ataque nuevo" de la demo)
     PESOS       archivo .pt con su modelo propio
     VALIDACION  archivo .csv con sus flujos de validación
     OFRECE      archivo .pt que ofrece a sus pares cuando reconoce un ataque (opcional)
+  En esos tres nombres, el texto <familia> se reemplaza por la familia elegida.
 """
 import csv
 import json
@@ -51,7 +54,6 @@ DIR_MODELOS = Path(os.environ.get("DIR_MODELOS", "/modelos"))
 NOMBRE = os.environ.get("NOMBRE", "Nodo")
 DIRECCION = os.environ.get("DIRECCION", "nodo")
 PARES = [par for par in os.environ.get("PARES", "").split(",") if par]
-OFRECE = os.environ.get("OFRECE") or None
 PUERTO = 8000
 CLASES = {"mlp": MLP, "transformer": FlowTransformer}
 
@@ -65,6 +67,8 @@ PREMIO = 0.25                  # lo que sube la reputación con una oferta buena
 # Todo lo que el agente sabe en este momento. Se llena en reiniciar().
 estado = {"modelo": None, "archivo": None, "comunicar": False, "medidas": {},
           "reputacion": {}, "pendientes": set(), "mensajes": []}
+# Archivos del agente para la familia de ataque elegida. Se llena en elegir_familia().
+propio = {"familia": None, "pesos": None, "ofrece": None}
 validacion = {"X": None, "y": None}
 candado = threading.Lock()  # el servidor atiende varios pedidos a la vez: el modelo se cambia de a uno
 
@@ -95,11 +99,22 @@ def adoptar(modelo: torch.nn.Module, archivo: str, medidas: dict) -> None:
     print(f"[{NOMBRE}] modelo cargado: {estado['archivo']}")
 
 
-def reiniciar(comunicar: bool) -> None:
+def elegir_familia(familia: str) -> None:
+    """Pasa a usar el modelo propio, la validación y la oferta que corresponden a esa familia de ataque."""
+    if familia not in FAMILIAS[1:]:
+        raise ValueError(f"Familia desconocida: {familia}")
+    archivo = lambda variable: (os.environ.get(variable) or "").replace("<familia>", familia) or None
+    leer_validacion(archivo("VALIDACION"))
+    propio.update(familia=familia, pesos=archivo("PESOS"), ofrece=archivo("OFRECE"))
+
+
+def reiniciar(comunicar: bool, familia: str | None = None) -> None:
     """Vuelve al punto de partida: su modelo propio, reputaciones iniciales y sin mensajes."""
-    modelo = leer_modelo(os.environ["PESOS"])
+    if familia and familia != propio["familia"]:
+        elegir_familia(familia)
+    modelo = leer_modelo(propio["pesos"])
     with candado:
-        adoptar(modelo, os.environ["PESOS"], medir(modelo))
+        adoptar(modelo, propio["pesos"], medir(modelo))
         estado.update(comunicar=comunicar, mensajes=[], pendientes=set(PARES),
                       reputacion={par: REPUTACION_INICIAL for par in PARES})
 
@@ -133,9 +148,10 @@ def analizar(flujos: list[list[float]]) -> dict:
 # ---------------------------------------------------------------------------
 def ofrecer_a_los_pares(familia: str, cantidad: int) -> None:
     """Avisa del ataque a cada par que todavía no respondió que sí (o que no quiere oír más)."""
-    if not (estado["comunicar"] and OFRECE):
+    if not (estado["comunicar"] and propio["ofrece"]):
         return
-    oferta = {"de": DIRECCION, "nombre": NOMBRE, "familia": familia, "cantidad": cantidad, "archivo": OFRECE}
+    oferta = {"de": DIRECCION, "nombre": NOMBRE, "familia": familia, "cantidad": cantidad,
+              "archivo": propio["ofrece"]}
     for par in sorted(estado["pendientes"]):
         try:
             pedido = urllib.request.Request(f"http://{par}:{PUERTO}/mensaje", data=json.dumps(oferta).encode(),
@@ -144,7 +160,7 @@ def ofrecer_a_los_pares(familia: str, cantidad: int) -> None:
                 decision = json.loads(respuesta.read()).get("decision")
         except OSError:
             continue  # el par no responde: se intenta de nuevo la próxima vez
-        print(f"[{NOMBRE}] ofreció {OFRECE} a {par}: {decision}")
+        print(f"[{NOMBRE}] ofreció {propio['ofrece']} a {par}: {decision}")
         if decision in ("acepta", "ya_lo_tiene", "ignora"):
             estado["pendientes"].discard(par)  # si lo rechazó, insiste en el próximo ataque que vea
 
@@ -188,7 +204,8 @@ def recibir_oferta(oferta: dict) -> dict:
 
 
 def resumen_del_estado() -> dict:
-    return {"nombre": NOMBRE, "direccion": DIRECCION, "pesos": estado["archivo"], "propio": os.environ["PESOS"],
+    return {"nombre": NOMBRE, "direccion": DIRECCION, "pesos": estado["archivo"], "propio": propio["pesos"],
+            "familia": propio["familia"],
             "comunicar": estado["comunicar"], "medidas": estado["medidas"],
             "reputacion": estado["reputacion"], "mensajes": estado["mensajes"]}
 
@@ -216,7 +233,7 @@ class Pedidos(BaseHTTPRequestHandler):
             elif self.path == "/mensaje":
                 self.responder(recibir_oferta(pedido))
             elif self.path == "/reiniciar":
-                reiniciar(bool(pedido.get("comunicar")))
+                reiniciar(bool(pedido.get("comunicar")), pedido.get("familia"))
                 self.responder(resumen_del_estado())
             else:
                 self.responder({"error": "ruta desconocida"}, 404)
@@ -237,7 +254,6 @@ def leer_validacion(archivo: str) -> None:
 
 
 if __name__ == "__main__":
-    leer_validacion(os.environ["VALIDACION"])
-    reiniciar(comunicar=False)
+    reiniciar(comunicar=False, familia=os.environ.get("FAMILIA", "PortScan"))
     print(f"[{NOMBRE}] escuchando en el puerto {PUERTO} | pares: {', '.join(PARES) or 'ninguno'}")
     ThreadingHTTPServer(("0.0.0.0", PUERTO), Pedidos).serve_forever()
